@@ -1,6 +1,6 @@
 FROM php:8.2-fpm
 
-# Install system dependencies
+# Installer dépendances système
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libonig-dev \
@@ -10,36 +10,29 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     libzip-dev \
-    supervisor \
-    cron \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions
+# Installer extensions PHP
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
 
-# Install Composer
+# Installer Composer
 COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 
-# Set working directory
+# Définir le répertoire de travail
 WORKDIR /var/www
 
-# Copy project files
+# Copier le code source
 COPY . .
 
-# Install PHP dependencies
+# Installer les dépendances PHP
 RUN composer install --optimize-autoloader --no-dev
 
-# Set permissions
+# Permissions
 RUN chown -R www-data:www-data /var/www \
-    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache
+    && chmod -R 755 /var/www/storage
 
-# Expose port
+# Exposer le port
 EXPOSE 8000
 
-# Entrypoint script to run migrations only once at container startup
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# Start container
-ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["php-fpm"]
+# Commande pour démarrer Laravel
+CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]
