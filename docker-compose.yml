@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   app:
     build:
@@ -6,8 +8,10 @@ services:
     container_name: check-du-matin-blade-app
     restart: unless-stopped
     working_dir: /var/www
+    volumes:
+      - .:/var/www   # Monte le code Laravel depuis l'hôte
     ports:
-      - "8001:8000"
+      - "8001:8000"  # Accès HTTP à Laravel
     depends_on:
       - db
     environment:
@@ -15,6 +19,17 @@ services:
       DB_DATABASE: check_du_matin
       DB_USERNAME: laravel
       DB_PASSWORD: laravel
+      APP_ENV: production
+      APP_DEBUG: 'false'
+      APP_KEY: base64:d/bWTOSGJ76PmCc86lZffGSmltGg9Y9flwZ3+QinOQs=
+      MAIL_MAILER: smtp
+      MAIL_HOST: HDV-003.connecte-chalons.local
+      MAIL_PORT: 25
+      MAIL_USERNAME: ''
+      MAIL_PASSWORD: ''
+      MAIL_ENCRYPTION: null
+      MAIL_FROM_ADDRESS: support.chalons@bouyguestelecom-solution.fr
+      MAIL_FROM_NAME: "CHECK DU MATIN"
 
   db:
     image: mysql:8.0
