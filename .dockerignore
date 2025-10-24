@@ -1,0 +1,7 @@
+public/storage
+node_modules
+vendor
+storage/app
+storage/framework
+storage/logs
+.env
