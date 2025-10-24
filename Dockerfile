@@ -31,8 +31,12 @@ RUN composer install --optimize-autoloader --no-dev
 RUN chown -R www-data:www-data /var/www \
     && chmod -R 755 /var/www/storage
 
+RUN chown -R www-data:www-data /var/www/bootstrap/cache \
+    && chmod -R 755 /var/www/bootstrap/cache
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Exposer le port
 EXPOSE 8000
-
-# Commande pour démarrer Laravel
-CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]
+CMD ["/entrypoint.sh"]

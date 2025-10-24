@@ -1,15 +1,12 @@
-#!/bin/bash
-set -e
-
-# Only run migrations if the database is reachable
-until php artisan migrate:status >/dev/null 2>&1; do
-  echo "Waiting for database..."
-  sleep 5
+#!/bin/sh
+# Attendre que MySQL soit prêt
+until mysql -h "$DB_HOST" -u "$DB_USERNAME" -p"$DB_PASSWORD" "$DB_DATABASE" >/dev/null 2>&1; do
+  echo "Waiting for MySQL..."
+  sleep 2
 done
 
-# Run migrations & seeds
+# Lancer migrations
 php artisan migrate --force
-php artisan db:seed --force
 
-# Start PHP-FPM
-exec "$@"
+# Lancer le serveur PHP interne
+php -S 0.0.0.0:8000 -t public
