@@ -1,42 +1,29 @@
-FROM php:8.2-fpm
+# Étape 1 : base PHP avec Composer
+FROM php:8.2-cli
 
-# Installer dépendances système
+# Installer les extensions nécessaires à Laravel
 RUN apt-get update && apt-get install -y \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    zip \
-    unzip \
-    git \
-    curl \
-    libzip-dev \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Installer extensions PHP
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+    zip unzip git curl libpng-dev libonig-dev libxml2-dev \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
 # Installer Composer
-COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Définir le répertoire de travail
+# Créer le dossier de travail
 WORKDIR /var/www
 
-# Copier le code source
+# Copier les fichiers de ton projet
 COPY . .
 
-# Installer les dépendances PHP
-RUN composer install --optimize-autoloader --no-dev
+# Installer les dépendances Laravel
+RUN composer install --no-dev --no-interaction --optimize-autoloader
 
-# Permissions
-RUN chown -R www-data:www-data /var/www \
-    && chmod -R 755 /var/www/storage
+# Donner les bons droits à Laravel
+RUN mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache && \
+    chmod -R 775 storage bootstrap/cache
 
-RUN chown -R www-data:www-data /var/www/bootstrap/cache \
-    && chmod -R 755 /var/www/bootstrap/cache
-
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-# Exposer le port
+# Exposer le port PHP
 EXPOSE 8000
-CMD ["/entrypoint.sh"]
+
+# Commande par défaut (serveur Laravel)
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
