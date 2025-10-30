@@ -17,6 +17,21 @@ services:
       DB_DATABASE: check_du_matin
       DB_USERNAME: laravel
       DB_PASSWORD: laravel
+      # 👇 pour éviter "MissingAppKeyException" sur un nouveau déploiement
+      APP_ENV: production
+      APP_KEY: ${APP_KEY:-base64:dummykey1234567890dummykey1234567890==}
+    volumes:
+      - ./:/var/www
+    command: >
+      bash -c "
+        mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache &&
+        chmod -R 775 storage bootstrap/cache &&
+        php artisan key:generate --force --no-interaction &&
+        php artisan config:cache &&
+        php artisan route:cache &&
+        php artisan view:cache &&
+        php -S 0.0.0.0:8000 -t public
+      "
 
   db:
     image: mysql:8.0
@@ -34,3 +49,4 @@ services:
 
 volumes:
   db_data:
+  
