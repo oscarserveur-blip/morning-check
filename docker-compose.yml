@@ -20,8 +20,8 @@ services:
       # 👇 pour éviter "MissingAppKeyException" sur un nouveau déploiement
       APP_ENV: production
       APP_KEY: ${APP_KEY:-base64:dummykey1234567890dummykey1234567890==}
-    volumes:
-      - ./:/var/www
+    # volumes:
+    #   - ./:/var/www
     command: >
       bash -c "
         mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache &&
@@ -49,4 +49,3 @@ services:
 
 volumes:
   db_data:
-  
