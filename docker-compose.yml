@@ -12,19 +12,18 @@ services:
       - "8001:8000"
     depends_on:
       - db
+    volumes:
+      - .:/var/www       # code source
+      - ./prod.env:/var/www/.env  # <- ton vrai .env
     environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
       DB_HOST: db
       DB_DATABASE: check_du_matin
       DB_USERNAME: laravel
       DB_PASSWORD: laravel
-      APP_ENV: production
-      APP_DEBUG: "false"
     command: >
       bash -c "
-        if [ ! -f .env ]; then
-          echo '⚙️  Aucun fichier .env trouvé, création à partir de .env.example...';
-          cp .env.example .env;
-        fi &&
         mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache &&
         chmod -R 775 storage bootstrap/cache &&
         php artisan key:generate --force &&
@@ -33,6 +32,7 @@ services:
         php artisan view:cache &&
         php -S 0.0.0.0:8000 -t public
       "
+
 
   db:
     image: mysql:8.0
