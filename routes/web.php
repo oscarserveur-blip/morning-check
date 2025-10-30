@@ -57,14 +57,12 @@ Route::middleware('auth')->group(function () {
     // Routes pour les services d'un check
     Route::get('/checks/{check}/services', [ServiceCheckController::class, 'getCheckServices'])->name('checks.services');
     Route::put('/checks/{check}/service-checks', [ServiceCheckController::class, 'updateAll'])->name('checks.service-checks.update-all');
-    Route::put('/service-checks/{serviceCheck}', [ServiceCheckController::class, 'updateStatus'])->name('service-checks.update');
     Route::post('/service-checks/{serviceCheck}/status', [ServiceCheckController::class, 'updateStatus'])->name('service-checks.update-status');
     Route::post('/service-checks/{serviceCheck}/comment', [ServiceCheckController::class, 'updateComment'])->name('service-checks.update-comment');
     Route::post('/service-checks/{serviceCheck}/intervenant', [ServiceCheckController::class, 'updateIntervenant'])->name('service-checks.update-intervenant');
 
     // Ajout/suppression de service à un check
     Route::post('/checks/{check}/service-checks', [ServiceCheckController::class, 'store'])->name('checks.service-checks.store');
-    Route::delete('/service-checks/{serviceCheck}', [ServiceCheckController::class, 'destroy'])->name('service-checks.destroy');
 
     // Routes pour les templates
     Route::resource('templates', TemplateController::class);
@@ -72,7 +70,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/templates/{template}/export-example', [\App\Http\Controllers\TemplateController::class, 'exportExample'])->name('templates.exportExample');
 
     // ... existing code ...
-    Route::post('/clients/{client}/auto-check', [App\Http\Controllers\CheckController::class, 'autoCheck'])->name('clients.auto-check');
     Route::get('/clients/{client}/checks-list', [App\Http\Controllers\ClientController::class, 'checksList'])->name('clients.checks-list');
     // ... existing code ...
 
