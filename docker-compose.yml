@@ -17,16 +17,17 @@ services:
       DB_DATABASE: check_du_matin
       DB_USERNAME: laravel
       DB_PASSWORD: laravel
-      # 👇 pour éviter "MissingAppKeyException" sur un nouveau déploiement
       APP_ENV: production
-      APP_KEY: ${APP_KEY:-base64:dummykey1234567890dummykey1234567890==}
-    # volumes:
-    #   - ./:/var/www
+      APP_DEBUG: "false"
     command: >
       bash -c "
+        if [ ! -f .env ]; then
+          echo '⚙️  Aucun fichier .env trouvé, création à partir de .env.example...';
+          cp .env.example .env;
+        fi &&
         mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache &&
         chmod -R 775 storage bootstrap/cache &&
-        php artisan key:generate --force --no-interaction &&
+        php artisan key:generate --force &&
         php artisan config:cache &&
         php artisan route:cache &&
         php artisan view:cache &&
