@@ -16,6 +16,9 @@ services:
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
+      APP_URL: https://checking.c2s.fr
+      ASSET_URL: https://checking.c2s.fr
+      SESSION_SECURE_COOKIE: "true"
       DB_HOST: db
       DB_DATABASE: check_du_matin
       DB_USERNAME: laravel
