@@ -1,3 +1,18 @@
+# Étape 0 : build des assets front avec Vite
+FROM node:20-alpine AS assets
+
+WORKDIR /var/www
+
+# Copier uniquement ce qui est nécessaire pour le build front
+COPY package*.json ./
+COPY vite.config.js ./
+COPY postcss.config.js ./
+COPY tailwind.config.js ./
+COPY resources ./resources
+COPY public ./public
+
+RUN npm ci && npm run build
+
 # Étape 1 : base PHP avec Composer
 FROM php:8.2-cli
 
@@ -17,6 +32,9 @@ COPY . .
 
 # Installer les dépendances Laravel
 RUN composer install --no-dev --no-interaction --optimize-autoloader
+
+# Copier les assets buildés depuis l'étape Node
+COPY --from=assets /var/www/public/build /var/www/public/build
 
 # Donner les bons droits à Laravel
 RUN mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache && \
