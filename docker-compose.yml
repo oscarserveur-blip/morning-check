@@ -23,6 +23,7 @@ services:
     command: >
       bash -c "
         mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache &&
+        mkdir -p storage/app &&
         chmod -R 775 storage bootstrap/cache &&
         if [ ! -f storage/app/initialized ]; then \
           php artisan key:generate --force; \
