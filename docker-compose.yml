@@ -14,7 +14,7 @@ services:
       - db
     volumes:
       - .:/var/www       # code source
-      - ./prod.env:/var/www/.env  # <- ton vrai .env
+      - ./.env.prod:/var/www/.env  # <- ton vrai .env
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
