@@ -17,13 +17,15 @@ class CompleteSeeder extends Seeder
 {
     public function run(): void
     {
-        // Créer l'utilisateur admin
-        $user = User::create([
-            'name' => 'Admin',
-            'email' => 'admin@example.com',
-            'password' => bcrypt('password'),
-            'role' => 'admin'
-        ]);
+        // Créer l'utilisateur admin (idempotent)
+        $user = User::firstOrCreate(
+            ['email' => 'admin@example.com'],
+            [
+                'name' => 'Admin',
+                'password' => bcrypt('password'),
+                'role' => 'admin'
+            ]
+        );
 
         // Créer un template par défaut si besoin
         $template = Template::first() ?? Template::create([
@@ -33,19 +35,22 @@ class CompleteSeeder extends Seeder
         ]);
 
         // Créer un client
-        $client = Client::create([
-            'label' => 'Client Test',
-            'template_id' => $template->id,
-            'check_time' => '09:00'
-        ]);
+        $client = Client::firstOrCreate(
+            ['label' => 'Client Test'],
+            [
+                'template_id' => $template->id,
+                'check_time' => '09:00'
+            ]
+        );
 
         // Créer une catégorie
-        $category = Category::create([
-            'title' => 'Catégorie Test',
-            'client_id' => $client->id,
-            'status' => true,
-            'created_by' => $user->id
-        ]);
+        $category = Category::firstOrCreate(
+            ['title' => 'Catégorie Test', 'client_id' => $client->id],
+            [
+                'status' => true,
+                'created_by' => $user->id
+            ]
+        );
 
         // Créer des services
         $services = [
@@ -70,26 +75,30 @@ class CompleteSeeder extends Seeder
         ];
 
         foreach ($services as $serviceData) {
-            Service::create($serviceData);
+            Service::firstOrCreate(
+                ['title' => $serviceData['title'], 'category_id' => $category->id],
+                $serviceData
+            );
         }
 
         // Créer un check
-        $check = Check::create([
-            'date_time' => Carbon::now(),
-            'client_id' => $client->id,
-            'created_by' => $user->id,
-            'statut' => 'pending'
-        ]);
+        $check = Check::firstOrCreate(
+            ['client_id' => $client->id, 'statut' => 'pending'],
+            [
+                'date_time' => Carbon::now(),
+                'created_by' => $user->id,
+            ]
+        );
 
         // Créer les ServiceChecks
         $services = Service::where('category_id', $category->id)->get();
         foreach ($services as $service) {
-            ServiceCheck::create([
-                'check_id' => $check->id,
-                'service_id' => $service->id,
-                'statut' => 'pending',
-                'etat' => 'pending'
-            ]);
+            ServiceCheck::firstOrCreate(
+                ['check_id' => $check->id, 'service_id' => $service->id],
+                [
+                    'statut' => 'pending',
+                ]
+            );
         }
 
         // Ajouter les jours fériés
