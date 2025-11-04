@@ -507,14 +507,40 @@ private function exportToPng($data)
 }
 
 /**
+ * Validate and normalize hex color
+ */
+private function normalizeColor($color, $default = '#000000')
+{
+    if (empty($color)) {
+        return $default;
+    }
+    
+    // Remove # if present
+    $color = ltrim($color, '#');
+    
+    // Validate hex color (3 or 6 characters)
+    if (!preg_match('/^[0-9A-Fa-f]{3}$|^[0-9A-Fa-f]{6}$/', $color)) {
+        return $default;
+    }
+    
+    // Normalize to 6 characters
+    if (strlen($color) === 3) {
+        $color = $color[0] . $color[0] . $color[1] . $color[1] . $color[2] . $color[2];
+    }
+    
+    return '#' . strtoupper($color);
+}
+
+/**
  * Generate PNG image with exact design matching the reference
  */
 private function generatePngImage($data, $forDownload = false)
 {
-    $check = $data['check'];
-    $client = $data['client'];
-    $template = $data['template'];
-    $serviceChecks = $data['serviceChecks']->load('service.category');
+    try {
+        $check = $data['check'];
+        $client = $data['client'];
+        $template = $data['template'];
+        $serviceChecks = $data['serviceChecks']->load('service.category');
 
     // Configuration du canvas (format A4 portrait)
     $width = 2480;  // A4 à 300 DPI
@@ -537,12 +563,17 @@ private function generatePngImage($data, $forDownload = false)
     }
 
     $config = $template->config ?? [];
-    $headerColor = $template->header_color ?? '#FF0000';
-    $footerColor = $template->footer_color ?? '#C00000';
-    $okColor = $config['ok_color'] ?? '#00B050';
-    $nokColor = $config['nok_color'] ?? '#FF0000';
-    $warningColor = $config['warning_color'] ?? '#FFC000';
-    $sectionBgColor = '#444444';
+    // Normaliser et valider toutes les couleurs
+    $headerColor = $this->normalizeColor($template->header_color ?? '#FF0000', '#FF0000');
+    $footerColor = $this->normalizeColor($template->footer_color ?? '#C00000', '#C00000');
+    
+    // Les couleurs dans config peuvent être stockées avec ou sans #
+    $okColor = $this->normalizeColor($config['ok_color'] ?? '#00B050', '#00B050');
+    $nokColor = $this->normalizeColor($config['nok_color'] ?? '#FF0000', '#FF0000');
+    $warningColor = $this->normalizeColor($config['warning_color'] ?? '#FFC000', '#FFC000');
+    
+    // Utiliser la couleur du header pour les sections (comme dans la capture)
+    $sectionBgColor = $headerColor;
     $headerBgColor = '#F5F5F5';
     $rowAltColor = '#F9F9F9';
 
@@ -552,52 +583,42 @@ private function generatePngImage($data, $forDownload = false)
     $y = 0;
 
     // === HEADER ===
-    // Bordure rouge en haut
-    $img->rectangle(0, $y, $width, $y + 5, function ($draw) use ($headerColor) {
+    // Header avec fond rouge complet
+    $img->rectangle(0, $y, $width, $y + $headerHeight, function ($draw) use ($headerColor) {
         $draw->background($headerColor);
-    });
-    $y += 5;
-
-    // Zone header avec fond blanc
-    $headerY = $y;
-    $img->rectangle(0, $y, $width, $y + $headerHeight, function ($draw) {
-        $draw->background('#FFFFFF');
     });
 
     // Logo à gauche
     $logoPath = $template->header_logo ?? $client->logo;
     $logoX = $padding;
     if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
-        $logo = $manager->make(storage_path('app/public/' . $logoPath));
-        $logo->resize(150, null, function ($constraint) {
-            $constraint->aspectRatio();
-        });
-        $img->insert($logo, 'top-left', $logoX, $y + 20);
-        $logoX += 180;
+        try {
+            $logo = $manager->make(storage_path('app/public/' . $logoPath));
+            $logo->resize(150, null, function ($constraint) {
+                $constraint->aspectRatio();
+            });
+            $img->insert($logo, 'top-left', $logoX, $y + 20);
+            $logoX += 180;
+        } catch (\Exception $e) {
+            \Log::warning('Erreur chargement logo: ' . $e->getMessage());
+        }
     }
 
-    // Titre au centre (rouge)
-    $title = $template->header_title ?? 'Bulletin de Santé Connecte Chalons';
+    // Titre au centre (blanc sur fond rouge)
+    $title = $template->header_title ?? 'Bulletin de Santé IT';
     $titleX = $width / 2;
-    $titleY = $y + $headerHeight / 2;
-    $img->text($title, $titleX, $titleY, function ($font) use ($fontPath, $headerColor) {
+    $titleY = $y + ($headerHeight / 2) - 15;
+    $img->text($title, $titleX, $titleY, function ($font) use ($fontPath) {
         if ($fontPath) $font->file($fontPath);
         $font->size(56);
-        $font->color($headerColor);
+        $font->color('#FFFFFF');
         $font->align('center');
         $font->valign('middle');
     });
 
-    // Date dans boîte grise à droite
-    $dateBoxWidth = 280;
-    $dateBoxX = $width - $dateBoxWidth - $padding;
-    $dateBoxY = $y + 20;
-    $dateBoxHeight = 60;
-    $img->rectangle($dateBoxX, $dateBoxY, $dateBoxX + $dateBoxWidth, $dateBoxY + $dateBoxHeight, function ($draw) {
-        $draw->background('#444444');
-    });
-    $frenchDate = $check->date_time->locale('fr')->isoFormat('dddd DD/MM/YYYY');
-    $img->text(ucfirst($frenchDate), $dateBoxX + $dateBoxWidth / 2, $dateBoxY + $dateBoxHeight / 2, function ($font) use ($fontPath) {
+    // Date en blanc sous le titre
+    $frenchDate = $check->date_time->locale('fr')->isoFormat('dddd D MMMM YYYY');
+    $img->text(ucfirst($frenchDate), $titleX, $titleY + 40, function ($font) use ($fontPath) {
         if ($fontPath) $font->file($fontPath);
         $font->size(32);
         $font->color('#FFFFFF');
@@ -647,6 +668,11 @@ private function generatePngImage($data, $forDownload = false)
         $y += $sectionHeaderHeight;
 
         // === EN-TÊTE DE TABLEAU (gris clair) ===
+        // Calcul des largeurs de colonnes
+        $colServiceWidth = intval($width * 0.50);  // 50% pour Service
+        $colEtatWidth = intval($width * 0.20);     // 20% pour État
+        $colObsWidth = $width - $colServiceWidth - $colEtatWidth; // Reste pour Observations
+        
         $img->rectangle(0, $y, $width, $y + $rowHeight, function ($draw) use ($headerBgColor) {
             $draw->background($headerBgColor);
         });
@@ -668,19 +694,32 @@ private function generatePngImage($data, $forDownload = false)
         $img->rectangle($width - $borderWidth, $y, $width, $y + $rowHeight, function ($draw) {
             $draw->background('#000000');
         });
-        // Ligne verticale séparant Description et État
-        $separatorX = $width - 200;
-        $img->rectangle($separatorX, $y, $separatorX + $borderWidth, $y + $rowHeight, function ($draw) {
+        // Lignes verticales séparant les colonnes
+        $separator1X = $colServiceWidth;
+        $separator2X = $colServiceWidth + $colEtatWidth;
+        $img->rectangle($separator1X, $y, $separator1X + $borderWidth, $y + $rowHeight, function ($draw) {
+            $draw->background('#000000');
+        });
+        $img->rectangle($separator2X, $y, $separator2X + $borderWidth, $y + $rowHeight, function ($draw) {
             $draw->background('#000000');
         });
         
-        $img->text('Description', $padding + 20, $y + $rowHeight / 2, function ($font) use ($fontPath) {
+        // En-têtes de colonnes
+        $img->text('Service', $colServiceWidth / 2, $y + $rowHeight / 2, function ($font) use ($fontPath) {
             if ($fontPath) $font->file($fontPath);
             $font->size(36);
             $font->color('#000000');
+            $font->align('center');
             $font->valign('middle');
         });
-        $img->text('État', $width - 100, $y + $rowHeight / 2, function ($font) use ($fontPath) {
+        $img->text('État', $colServiceWidth + ($colEtatWidth / 2), $y + $rowHeight / 2, function ($font) use ($fontPath) {
+            if ($fontPath) $font->file($fontPath);
+            $font->size(36);
+            $font->color('#000000');
+            $font->align('center');
+            $font->valign('middle');
+        });
+        $img->text('Observations', $separator2X + ($colObsWidth / 2), $y + $rowHeight / 2, function ($font) use ($fontPath) {
             if ($fontPath) $font->file($fontPath);
             $font->size(36);
             $font->color('#000000');
@@ -738,21 +777,25 @@ private function generatePngImage($data, $forDownload = false)
                 $img->rectangle($width - $cellBorderWidth, $y, $width, $y + $rowHeight, function ($draw) {
                     $draw->background('#000000');
                 });
-                // Ligne verticale séparant Description et État
-                $separatorX = $width - 200;
-                $img->rectangle($separatorX, $y, $separatorX + $cellBorderWidth, $y + $rowHeight, function ($draw) {
+                // Lignes verticales séparant les colonnes
+                $img->rectangle($separator1X, $y, $separator1X + $cellBorderWidth, $y + $rowHeight, function ($draw) {
+                    $draw->background('#000000');
+                });
+                $img->rectangle($separator2X, $y, $separator2X + $cellBorderWidth, $y + $rowHeight, function ($draw) {
                     $draw->background('#000000');
                 });
 
-                // Description du service
-                $img->text($serviceCheck->service->title ?? 'N/A', $padding + 20, $y + $rowHeight / 2, function ($font) use ($fontPath) {
+                // Service (colonne 1)
+                $serviceText = $serviceCheck->service->title ?? 'N/A';
+                $img->text($serviceText, $colServiceWidth / 2, $y + $rowHeight / 2, function ($font) use ($fontPath) {
                     if ($fontPath) $font->file($fontPath);
                     $font->size(34);
                     $font->color('#000000');
+                    $font->align('center');
                     $font->valign('middle');
                 });
 
-                // Statut
+                // Statut (colonne 2)
                 $statusLabel = match ($serviceCheck->statut) {
                     'success' => 'OK',
                     'error'   => 'NOK',
@@ -768,8 +811,8 @@ private function generatePngImage($data, $forDownload = false)
                 };
 
                 // Rectangle pour le statut
-                $statusX = $width - 200;
-                $statusWidth = 200;
+                $statusX = $separator1X;
+                $statusWidth = $colEtatWidth;
                 $img->rectangle($statusX, $y, $statusX + $statusWidth, $y + $rowHeight, function ($draw) use ($statusColor) {
                     $draw->background($statusColor);
                 });
@@ -777,6 +820,18 @@ private function generatePngImage($data, $forDownload = false)
                     if ($fontPath) $font->file($fontPath);
                     $font->size(32);
                     $font->color('#FFFFFF');
+                    $font->align('center');
+                    $font->valign('middle');
+                });
+
+                // Observations (colonne 3)
+                $observations = $serviceCheck->observations ?? $serviceCheck->notes ?? '';
+                $obsX = $separator2X + $padding;
+                $obsWidth = $colObsWidth - ($padding * 2);
+                $img->text($observations, $obsX + ($obsWidth / 2), $y + $rowHeight / 2, function ($font) use ($fontPath) {
+                    if ($fontPath) $font->file($fontPath);
+                    $font->size(30);
+                    $font->color('#000000');
                     $font->align('center');
                     $font->valign('middle');
                 });
@@ -820,6 +875,24 @@ private function generatePngImage($data, $forDownload = false)
     }
     
     return $pngContent;
+    
+    } catch (\Throwable $e) {
+        \Log::error('Erreur génération PNG: ' . $e->getMessage(), [
+            'exception' => $e,
+            'check_id' => $check->id ?? null,
+            'client_id' => $client->id ?? null,
+            'template_id' => $template->id ?? null,
+        ]);
+        
+        // Si c'est pour un download, retourner une erreur
+        if ($forDownload) {
+            throw $e;
+        }
+        
+        // Sinon, retourner une image d'erreur simple ou null
+        // Pour l'email, on préfère retourner null et laisser l'email se générer sans PNG
+        return null;
+    }
 }
 
     /**
@@ -1130,9 +1203,9 @@ private function generatePngImage($data, $forDownload = false)
         $attachment = $this->buildCheckAttachment($check);
         if ($attachment === null) {
             if (request()->ajax() || request()->wantsJson()) {
-                return response()->json(['success' => false, 'message' => "Type de template non pris en charge pour l'envoi."], 422);
+                return response()->json(['success' => false, 'message' => "Erreur lors de la génération du fichier joint. Vérifiez les logs pour plus de détails."], 422);
             }
-            return back()->with('error', "Type de template non pris en charge pour l'envoi.");
+            return back()->with('error', "Erreur lors de la génération du fichier joint. Vérifiez les logs pour plus de détails.");
         }
 
         // Prepare and send email
@@ -1153,9 +1226,13 @@ private function generatePngImage($data, $forDownload = false)
                 }
                 $message->subject($subject);
                 $message->html($emailHtml);
-                $message->attachData($attachment['data'], $attachment['filename'], [
-                    'mime' => $attachment['mime'],
-                ]);
+                
+                // Attacher le fichier seulement si les données sont valides
+                if (!empty($attachment['data'])) {
+                    $message->attachData($attachment['data'], $attachment['filename'], [
+                        'mime' => $attachment['mime'] ?? 'application/octet-stream',
+                    ]);
+                }
             });
         } catch (\Throwable $e) {
             if (request()->ajax() || request()->wantsJson()) {
@@ -1203,19 +1280,34 @@ private function generatePngImage($data, $forDownload = false)
                 ];
             case 'png':
                 // Build PNG bytes using the same function as exportToPng
-                $data = [
-                    'check' => $check,
-                    'client' => $client,
-                    'template' => $template,
-                    'serviceChecks' => $check->serviceChecks,
-                ];
-                $pngData = $this->generatePngImage($data, false);
-                $filename = "check_{$client->label}_{$check->date_time->format('Y-m-d_H-i')}.png";
-                return [
-                    'data' => $pngData,
-                    'filename' => $filename,
-                    'mime' => 'image/png',
-                ];
+                try {
+                    $data = [
+                        'check' => $check,
+                        'client' => $client,
+                        'template' => $template,
+                        'serviceChecks' => $check->serviceChecks,
+                    ];
+                    $pngData = $this->generatePngImage($data, false);
+                    
+                    // Si la génération a échoué, retourner null
+                    if ($pngData === null || empty($pngData)) {
+                        \Log::warning('Génération PNG retournée vide pour check ' . $check->id);
+                        return null;
+                    }
+                    
+                    $filename = "check_{$client->label}_{$check->date_time->format('Y-m-d_H-i')}.png";
+                    return [
+                        'data' => $pngData,
+                        'filename' => $filename,
+                        'mime' => 'image/png',
+                    ];
+                } catch (\Throwable $e) {
+                    \Log::error('Erreur buildCheckAttachment PNG: ' . $e->getMessage(), [
+                        'check_id' => $check->id,
+                        'exception' => $e,
+                    ]);
+                    return null;
+                }
             case 'word':
                 $filename = "check_{$client->label}_{$check->date_time->format('Y-m-d_H-i')}.docx";
                 $content = $this->generateWordContent([
