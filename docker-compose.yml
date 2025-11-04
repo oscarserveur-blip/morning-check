@@ -23,6 +23,12 @@ services:
       DB_DATABASE: check_du_matin
       DB_USERNAME: laravel
       DB_PASSWORD: laravel
+      MAIL_MAILER: smtp
+      MAIL_HOST: relais.services.c-2-s.info
+      MAIL_PORT: 25
+      MAIL_USERNAME: null
+      MAIL_PASSWORD: null
+      MAIL_ENCRYPTION: null
     command: >
       bash -c "
         mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache &&
