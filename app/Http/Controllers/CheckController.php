@@ -604,10 +604,10 @@ private function generatePngImage($data, $forDownload = false)
         }
     }
 
-    // Titre au centre (blanc sur fond rouge)
+    // Titre au centre (blanc sur fond coloré)
     $title = $template->header_title ?? 'Bulletin de Santé IT';
     $titleX = $width / 2;
-    $titleY = $y + ($headerHeight / 2) - 15;
+    $titleY = $y + $headerHeight / 2;
     $img->text($title, $titleX, $titleY, function ($font) use ($fontPath) {
         if ($fontPath) $font->file($fontPath);
         $font->size(56);
@@ -616,13 +616,14 @@ private function generatePngImage($data, $forDownload = false)
         $font->valign('middle');
     });
 
-    // Date en blanc sous le titre
+    // Date en blanc à droite
     $frenchDate = $check->date_time->locale('fr')->isoFormat('dddd D MMMM YYYY');
-    $img->text(ucfirst($frenchDate), $titleX, $titleY + 40, function ($font) use ($fontPath) {
+    $dateX = $width - $padding - 20;
+    $img->text(ucfirst($frenchDate), $dateX, $titleY, function ($font) use ($fontPath) {
         if ($fontPath) $font->file($fontPath);
         $font->size(32);
         $font->color('#FFFFFF');
-        $font->align('center');
+        $font->align('right');
         $font->valign('middle');
     });
 
@@ -705,13 +706,15 @@ private function generatePngImage($data, $forDownload = false)
         });
         
         // En-têtes de colonnes
-        $img->text('Service', $colServiceWidth / 2, $y + $rowHeight / 2, function ($font) use ($fontPath) {
+        // Service - aligné à gauche
+        $img->text('Service', $padding + 20, $y + $rowHeight / 2, function ($font) use ($fontPath) {
             if ($fontPath) $font->file($fontPath);
             $font->size(36);
             $font->color('#000000');
-            $font->align('center');
+            $font->align('left');
             $font->valign('middle');
         });
+        // État - centré
         $img->text('État', $colServiceWidth + ($colEtatWidth / 2), $y + $rowHeight / 2, function ($font) use ($fontPath) {
             if ($fontPath) $font->file($fontPath);
             $font->size(36);
@@ -719,11 +722,12 @@ private function generatePngImage($data, $forDownload = false)
             $font->align('center');
             $font->valign('middle');
         });
-        $img->text('Observations', $separator2X + ($colObsWidth / 2), $y + $rowHeight / 2, function ($font) use ($fontPath) {
+        // Observations - aligné à gauche
+        $img->text('Observations', $separator2X + $padding + 20, $y + $rowHeight / 2, function ($font) use ($fontPath) {
             if ($fontPath) $font->file($fontPath);
             $font->size(36);
             $font->color('#000000');
-            $font->align('center');
+            $font->align('left');
             $font->valign('middle');
         });
         $y += $rowHeight;
@@ -785,13 +789,14 @@ private function generatePngImage($data, $forDownload = false)
                     $draw->background('#000000');
                 });
 
-                // Service (colonne 1)
+                // Service (colonne 1) - aligné à gauche
                 $serviceText = $serviceCheck->service->title ?? 'N/A';
-                $img->text($serviceText, $colServiceWidth / 2, $y + $rowHeight / 2, function ($font) use ($fontPath) {
+                $serviceX = $padding + 20;
+                $img->text($serviceText, $serviceX, $y + $rowHeight / 2, function ($font) use ($fontPath) {
                     if ($fontPath) $font->file($fontPath);
                     $font->size(34);
                     $font->color('#000000');
-                    $font->align('center');
+                    $font->align('left');
                     $font->valign('middle');
                 });
 
@@ -824,15 +829,14 @@ private function generatePngImage($data, $forDownload = false)
                     $font->valign('middle');
                 });
 
-                // Observations (colonne 3)
+                // Observations (colonne 3) - aligné à gauche
                 $observations = $serviceCheck->observations ?? $serviceCheck->notes ?? '';
-                $obsX = $separator2X + $padding;
-                $obsWidth = $colObsWidth - ($padding * 2);
-                $img->text($observations, $obsX + ($obsWidth / 2), $y + $rowHeight / 2, function ($font) use ($fontPath) {
+                $obsX = $separator2X + $padding + 20;
+                $img->text($observations, $obsX, $y + $rowHeight / 2, function ($font) use ($fontPath) {
                     if ($fontPath) $font->file($fontPath);
                     $font->size(30);
                     $font->color('#000000');
-                    $font->align('center');
+                    $font->align('left');
                     $font->valign('middle');
                 });
 
@@ -1209,7 +1213,7 @@ private function generatePngImage($data, $forDownload = false)
         }
 
         // Prepare and send email
-        $subject = "Rapport de vérification - {$client->label} - " . $check->date_time->format('d/m/Y H:i');
+        $subject = "Bulletin de santé - {$client->label}";
         
         // Générer le HTML de l'email selon le type de template
         $emailHtml = $this->generateEmailHtml($check, $client, $attachment);
