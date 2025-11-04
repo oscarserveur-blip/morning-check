@@ -461,8 +461,16 @@ class CheckController extends Controller
         $check->load(['client', 'creator', 'serviceChecks.service.category', 'serviceChecks.intervenantUser']);
         $filename = "check_{$data['client']->label}_{$data['check']->date_time->format('Y-m-d_H-i')}.pdf";
         
-        // Utiliser DomPDF pour générer le PDF à partir de la vue Blade
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('checks.pdf', compact('check'));
+        // Générer le HTML via la méthode utilitaire puis le convertir en PDF
+        $html = $this->generatePdfContent([
+            'template' => $check->client->template,
+            'client' => $check->client,
+            'check' => $check,
+            'serviceChecks' => $check->serviceChecks,
+            'exportDate' => now()->format('d/m/Y H:i'),
+            'createdBy' => $check->creator->name ?? 'N/A',
+        ]);
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html);
         return $pdf->download($filename);
     }
 
@@ -491,10 +499,11 @@ class CheckController extends Controller
 
 private function exportToPng($data)
 {
-    $check = $data['check'];
-    $client = $data['client'];
-    $template = $data['template'];
-    $serviceChecks = $data['serviceChecks'];
+    try {
+        $check = $data['check'];
+        $client = $data['client'];
+        $template = $data['template'];
+        $serviceChecks = $data['serviceChecks'];
 
     // Configuration du canvas
     $width = 2000;
@@ -503,6 +512,9 @@ private function exportToPng($data)
 
     // Police TTF (support accents)
     $fontPath = storage_path('fonts/DejaVuSans.ttf');
+    if (!file_exists($fontPath)) {
+        $fontPath = null;
+    }
 
     // Config depuis le template
     $config = $template->config ?? [];
@@ -532,7 +544,7 @@ private function exportToPng($data)
 
     // Titre
     $img->text($template->header_title ?? 'Bulletin de Santé Connecte Châlons', $width / 2, 60, function ($font) use ($fontPath) {
-        $font->file($fontPath);
+        if ($fontPath) $font->file($fontPath);
         $font->size(60);
         $font->color('#FFFFFF');
         $font->align('center');
@@ -541,7 +553,7 @@ private function exportToPng($data)
 
     // Date
     $img->text($check->date_time->locale('fr')->isoFormat('dddd DD/MM/YYYY'), $width - $padding, 60, function ($font) use ($fontPath) {
-        $font->file($fontPath);
+        if ($fontPath) $font->file($fontPath);
         $font->size(45);
         $font->color('#FFFFFF');
         $font->align('right');
@@ -561,7 +573,7 @@ private function exportToPng($data)
             $draw->background('#444444');
         });
         $img->text($catTitle, $padding, $y + 30, function ($font) use ($fontPath) {
-            $font->file($fontPath);
+            if ($fontPath) $font->file($fontPath);
             $font->size(42);
             $font->color('#FFFFFF');
             $font->valign('middle');
@@ -573,13 +585,13 @@ private function exportToPng($data)
             $draw->background('#DDDDDD');
         });
         $img->text('Description', $padding, $y + 25, function ($font) use ($fontPath) {
-            $font->file($fontPath);
+            if ($fontPath) $font->file($fontPath);
             $font->size(38);
             $font->color('#000000');
             $font->valign('middle');
         });
         $img->text('État', $width - 200, $y + 25, function ($font) use ($fontPath) {
-            $font->file($fontPath);
+            if ($fontPath) $font->file($fontPath);
             $font->size(38);
             $font->color('#000000');
             $font->align('center');
@@ -596,7 +608,7 @@ private function exportToPng($data)
 
             // Service
             $img->text($serviceCheck->service->title, $padding, $y + 35, function ($font) use ($fontPath) {
-                $font->file($fontPath);
+                if ($fontPath) $font->file($fontPath);
                 $font->size(36);
                 $font->color('#000000');
                 $font->valign('middle');
@@ -623,7 +635,7 @@ private function exportToPng($data)
             });
 
             $img->text($statusLabel, $width - 150, $y + 35, function ($font) use ($fontPath) {
-                $font->file($fontPath);
+                if ($fontPath) $font->file($fontPath);
                 $font->size(34);
                 $font->color('#FFFFFF');
                 $font->align('center');
@@ -640,7 +652,7 @@ private function exportToPng($data)
         $draw->background($footerColor);
     });
     $img->text($template->footer_text ?? 'EXPLOITATION, Connecte Châlons : https://glpi.connecte-chalons.fr', $width / 2, $height - 50, function ($font) use ($fontPath) {
-        $font->file($fontPath);
+        if ($fontPath) $font->file($fontPath);
         $font->size(32);
         $font->color('#FFFFFF');
         $font->align('center');
@@ -654,6 +666,9 @@ private function exportToPng($data)
     return response($pngContent)
         ->header('Content-Type', 'image/png')
         ->header('Content-Disposition', "attachment; filename=\"$filename\"");
+    } catch (\Throwable $e) {
+        return back()->with('error', 'Erreur génération PNG: ' . $e->getMessage());
+    }
 }
 
     /**
@@ -971,8 +986,12 @@ private function exportToPng($data)
 
         // Prepare and send email
         $subject = "Rapport de vérification - {$client->label} - " . $check->date_time->format('d/m/Y H:i');
+        
+        // Générer le HTML de l'email selon le type de template
+        $emailHtml = $this->generateEmailHtml($check, $client, $attachment);
+        
         try {
-            Mail::send([], [], function ($message) use ($receivers, $senders, $subject, $attachment) {
+            Mail::send([], [], function ($message) use ($receivers, $senders, $subject, $attachment, $emailHtml) {
                 $message->to($receivers);
                 if (!empty($senders)) {
                     $message->from($senders[0]);
@@ -982,7 +1001,7 @@ private function exportToPng($data)
                     $message->cc(array_slice($senders, 1));
                 }
                 $message->subject($subject);
-                $message->html('Veuillez trouver en pièce jointe le rapport de vérification.');
+                $message->html($emailHtml);
                 $message->attachData($attachment['data'], $attachment['filename'], [
                     'mime' => $attachment['mime'],
                 ]);
@@ -1017,7 +1036,15 @@ private function exportToPng($data)
         switch ($type) {
             case 'pdf':
                 $filename = "check_{$client->label}_{$check->date_time->format('Y-m-d_H-i')}.pdf";
-                $pdf = Pdf::loadView('checks.pdf', compact('check'));
+                $html = $this->generatePdfContent([
+                    'template' => $template,
+                    'client' => $client,
+                    'check' => $check,
+                    'serviceChecks' => $check->serviceChecks,
+                    'exportDate' => now()->format('d/m/Y H:i'),
+                    'createdBy' => $check->creator->name ?? 'N/A',
+                ]);
+                $pdf = Pdf::loadHTML($html);
                 return [
                     'data' => $pdf->output(),
                     'filename' => $filename,
@@ -1104,6 +1131,9 @@ private function exportToPng($data)
         $height = 2500;
         $padding = 50;
         $fontPath = storage_path('fonts/DejaVuSans.ttf');
+        if (!file_exists($fontPath)) {
+            $fontPath = null;
+        }
         $config = $template->config ?? [];
         $headerColor = $template->header_color ?? '#FF0000';
         $footerColor = $template->footer_color ?? '#C00000';
@@ -1125,14 +1155,14 @@ private function exportToPng($data)
             $img->insert($logo, 'top-left', $padding, 15);
         }
         $img->text($template->header_title ?? 'Bulletin de Santé Connecte Châlons', $width / 2, 60, function ($font) use ($fontPath) {
-            $font->file($fontPath);
+            if ($fontPath) $font->file($fontPath);
             $font->size(60);
             $font->color('#FFFFFF');
             $font->align('center');
             $font->valign('middle');
         });
         $img->text($check->date_time->locale('fr')->isoFormat('dddd DD/MM/YYYY'), $width - $padding, 60, function ($font) use ($fontPath) {
-            $font->file($fontPath);
+            if ($fontPath) $font->file($fontPath);
             $font->size(45);
             $font->color('#FFFFFF');
             $font->align('right');
@@ -1170,5 +1200,138 @@ private function exportToPng($data)
         });
 
         return (string) $img->encode('png');
+    }
+
+    /**
+     * Generate HTML email content based on template type
+     */
+    private function generateEmailHtml(Check $check, Client $client, array $attachment): string
+    {
+        $template = $client->template;
+        $serviceChecks = $check->serviceChecks()->with('service.category')->get();
+        
+        // Si le type est PNG, on génère un HTML similaire à l'exemple
+        if ($template->type === 'png') {
+            return $this->generatePngEmailHtml($check, $client, $template, $serviceChecks);
+        }
+        
+        // Pour les autres types, HTML simple
+        return $this->generateSimpleEmailHtml($check, $client);
+    }
+
+    /**
+     * Generate HTML email for PNG template (style bulletin de santé)
+     */
+    private function generatePngEmailHtml(Check $check, Client $client, $template, $serviceChecks): string
+    {
+        $headerColor = $template->header_color ?? '#0b5aa0';
+        $frenchDate = $check->date_time->locale('fr')->isoFormat('dddd D MMMM YYYY');
+        
+        // Grouper par catégories
+        $categories = $serviceChecks->groupBy(function ($sc) {
+            return $sc->service->category->title ?? 'Autres';
+        });
+        
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f0f0f0; }
+        .container { max-width: 800px; margin: 0 auto; background-color: #ffffff; }
+        .header { background-color: ' . $headerColor . '; color: #ffffff; padding: 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; font-weight: bold; }
+        .header .date { margin-top: 10px; font-size: 14px; }
+        .content { padding: 20px; }
+        .category { margin-bottom: 30px; }
+        .category-title { background-color: ' . $headerColor . '; color: #ffffff; padding: 10px 15px; font-weight: bold; font-size: 16px; margin-bottom: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 0; }
+        table th { background-color: #f5f5f5; padding: 12px; text-align: left; border: 1px solid #ddd; font-weight: bold; }
+        table td { padding: 12px; border: 1px solid #ddd; }
+        .status-ok { background-color: #00B050; color: #ffffff; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
+        .status-nok { background-color: #FF0000; color: #ffffff; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
+        .status-warning { background-color: #FFC000; color: #000000; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
+        .footer { background-color: ' . ($template->footer_color ?? '#C00000') . '; color: #ffffff; padding: 15px; text-align: center; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>' . htmlspecialchars($template->header_title ?? 'Bulletin de Santé IT') . '</h1>
+            <div class="date">' . ucfirst($frenchDate) . '</div>
+        </div>
+        <div class="content">';
+        
+        foreach ($categories as $catTitle => $services) {
+            $html .= '<div class="category">
+                <div class="category-title">' . htmlspecialchars($catTitle) . '</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>État</th>
+                            <th>Observations</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+            
+            foreach ($services as $sc) {
+                $statusClass = match($sc->statut) {
+                    'success' => 'status-ok',
+                    'error' => 'status-nok',
+                    'warning' => 'status-warning',
+                    default => ''
+                };
+                
+                $statusLabel = match($sc->statut) {
+                    'success' => 'OK',
+                    'error' => 'NOK',
+                    'warning' => 'AVERTISSEMENT',
+                    default => strtoupper($sc->statut)
+                };
+                
+                $observations = $sc->observations ?? $sc->notes ?? '';
+                
+                $html .= '<tr>
+                    <td>' . htmlspecialchars($sc->service->title) . '</td>
+                    <td><span class="' . $statusClass . '">' . $statusLabel . '</span></td>
+                    <td>' . htmlspecialchars($observations) . '</td>
+                </tr>';
+            }
+            
+            $html .= '</tbody></table></div>';
+        }
+        
+        $html .= '</div>
+        <div class="footer">' . htmlspecialchars($template->footer_text ?? 'EXPLOITATION, Connecte Châlons : https://glpi.connecte-chalons.fr') . '</div>
+    </div>
+</body>
+</html>';
+        
+        return $html;
+    }
+
+    /**
+     * Generate simple HTML email for other template types
+     */
+    private function generateSimpleEmailHtml(Check $check, Client $client): string
+    {
+        return '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .content { background-color: #f9f9f9; padding: 20px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <h2>Rapport de vérification - ' . htmlspecialchars($client->label) . '</h2>
+        <p>Date: ' . $check->date_time->format('d/m/Y H:i') . '</p>
+        <p>Veuillez trouver en pièce jointe le rapport de vérification.</p>
+    </div>
+</body>
+</html>';
     }
 }
