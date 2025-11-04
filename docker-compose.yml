@@ -29,6 +29,7 @@ services:
       MAIL_USERNAME: null
       MAIL_PASSWORD: null
       MAIL_ENCRYPTION: null
+      MAIL_DSN: smtp://relais.services.c-2-s.info:25?encryption=null&verify_peer=0&verify_peer_name=0
     command: >
       bash -c "
         mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache &&
