@@ -1207,16 +1207,28 @@ private function exportToPng($data)
      */
     private function generateEmailHtml(Check $check, Client $client, array $attachment): string
     {
-        $template = $client->template;
-        $serviceChecks = $check->serviceChecks()->with('service.category')->get();
-        
-        // Si le type est PNG, on génère un HTML similaire à l'exemple
-        if ($template->type === 'png') {
-            return $this->generatePngEmailHtml($check, $client, $template, $serviceChecks);
+        try {
+            $client->load('template');
+            $template = $client->template;
+            
+            if (!$template) {
+                return $this->generateSimpleEmailHtml($check, $client);
+            }
+            
+            $serviceChecks = $check->serviceChecks()->with('service.category')->get();
+            
+            // Si le type est PNG, on génère un HTML similaire à l'exemple
+            if (($template->type ?? 'excel') === 'png') {
+                return $this->generatePngEmailHtml($check, $client, $template, $serviceChecks);
+            }
+            
+            // Pour les autres types, HTML simple
+            return $this->generateSimpleEmailHtml($check, $client);
+        } catch (\Throwable $e) {
+            // En cas d'erreur, retourner un HTML simple
+            \Log::error('Erreur génération HTML email: ' . $e->getMessage());
+            return $this->generateSimpleEmailHtml($check, $client);
         }
-        
-        // Pour les autres types, HTML simple
-        return $this->generateSimpleEmailHtml($check, $client);
     }
 
     /**
@@ -1227,9 +1239,15 @@ private function exportToPng($data)
         $headerColor = $template->header_color ?? '#0b5aa0';
         $frenchDate = $check->date_time->locale('fr')->isoFormat('dddd D MMMM YYYY');
         
+        // S'assurer que toutes les relations sont chargées
+        $serviceChecks->load(['service.category']);
+        
         // Grouper par catégories
         $categories = $serviceChecks->groupBy(function ($sc) {
-            return $sc->service->category->title ?? 'Autres';
+            if ($sc->service && $sc->service->category) {
+                return $sc->service->category->title ?? 'Autres';
+            }
+            return 'Autres';
         });
         
         $html = '<!DOCTYPE html>
@@ -1276,6 +1294,10 @@ private function exportToPng($data)
                     <tbody>';
             
             foreach ($services as $sc) {
+                if (!$sc->service) {
+                    continue;
+                }
+                
                 $statusClass = match($sc->statut) {
                     'success' => 'status-ok',
                     'error' => 'status-nok',
@@ -1287,13 +1309,13 @@ private function exportToPng($data)
                     'success' => 'OK',
                     'error' => 'NOK',
                     'warning' => 'AVERTISSEMENT',
-                    default => strtoupper($sc->statut)
+                    default => strtoupper($sc->statut ?? 'INCONNU')
                 };
                 
                 $observations = $sc->observations ?? $sc->notes ?? '';
                 
                 $html .= '<tr>
-                    <td>' . htmlspecialchars($sc->service->title) . '</td>
+                    <td>' . htmlspecialchars($sc->service->title ?? 'N/A') . '</td>
                     <td><span class="' . $statusClass . '">' . $statusLabel . '</span></td>
                     <td>' . htmlspecialchars($observations) . '</td>
                 </tr>';
