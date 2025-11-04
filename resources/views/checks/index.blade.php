@@ -277,7 +277,7 @@
 
                 <!-- Pagination -->
                 <div class="mt-6">
-                    {{ $checks->links('vendor.pagination.bootstrap-5') }}
+                    {{ $checks->links() }}
                 </div>
             </div>
         </div>

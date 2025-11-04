@@ -237,7 +237,7 @@
 
                 <!-- Pagination -->
                 <div class="mt-6">
-                    {{ $services->links('vendor.pagination.bootstrap-5') }}
+                    {{ $services->links() }}
                 </div>
             </div>
         </div>
