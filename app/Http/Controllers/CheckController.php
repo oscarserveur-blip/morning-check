@@ -620,22 +620,23 @@ private function generatePngImage($data, $forDownload = false)
         $img->rectangle(0, $y, $width, $y + $sectionHeaderHeight, function ($draw) use ($sectionBgColor) {
             $draw->background($sectionBgColor);
         });
-        // Bordures
-        $img->line(0, $y, $width, $y, function ($draw) {
-            $draw->color('#000000');
-            $draw->width(2);
+        // Bordures (rectangles fins pour simuler des lignes épaisses)
+        $borderWidth = 2;
+        // Ligne du haut
+        $img->rectangle(0, $y, $width, $y + $borderWidth, function ($draw) {
+            $draw->background('#000000');
         });
-        $img->line(0, $y + $sectionHeaderHeight, $width, $y + $sectionHeaderHeight, function ($draw) {
-            $draw->color('#000000');
-            $draw->width(2);
+        // Ligne du bas
+        $img->rectangle(0, $y + $sectionHeaderHeight - $borderWidth, $width, $y + $sectionHeaderHeight, function ($draw) {
+            $draw->background('#000000');
         });
-        $img->line(0, $y, 0, $y + $sectionHeaderHeight, function ($draw) {
-            $draw->color('#000000');
-            $draw->width(2);
+        // Ligne de gauche
+        $img->rectangle(0, $y, $borderWidth, $y + $sectionHeaderHeight, function ($draw) {
+            $draw->background('#000000');
         });
-        $img->line($width, $y, $width, $y + $sectionHeaderHeight, function ($draw) {
-            $draw->color('#000000');
-            $draw->width(2);
+        // Ligne de droite
+        $img->rectangle($width - $borderWidth, $y, $width, $y + $sectionHeaderHeight, function ($draw) {
+            $draw->background('#000000');
         });
         $img->text($mainSectionTitle, $padding, $y + $sectionHeaderHeight / 2, function ($font) use ($fontPath) {
             if ($fontPath) $font->file($fontPath);
@@ -649,27 +650,28 @@ private function generatePngImage($data, $forDownload = false)
         $img->rectangle(0, $y, $width, $y + $rowHeight, function ($draw) use ($headerBgColor) {
             $draw->background($headerBgColor);
         });
-        // Bordures (lignes)
-        $img->line(0, $y, $width, $y, function ($draw) {
-            $draw->color('#000000');
-            $draw->width(2);
+        // Bordures (rectangles fins)
+        $borderWidth = 2;
+        // Ligne du haut
+        $img->rectangle(0, $y, $width, $y + $borderWidth, function ($draw) {
+            $draw->background('#000000');
         });
-        $img->line(0, $y + $rowHeight, $width, $y + $rowHeight, function ($draw) {
-            $draw->color('#000000');
-            $draw->width(2);
+        // Ligne du bas
+        $img->rectangle(0, $y + $rowHeight - $borderWidth, $width, $y + $rowHeight, function ($draw) {
+            $draw->background('#000000');
         });
-        $img->line(0, $y, 0, $y + $rowHeight, function ($draw) {
-            $draw->color('#000000');
-            $draw->width(2);
+        // Ligne de gauche
+        $img->rectangle(0, $y, $borderWidth, $y + $rowHeight, function ($draw) {
+            $draw->background('#000000');
         });
-        $img->line($width, $y, $width, $y + $rowHeight, function ($draw) {
-            $draw->color('#000000');
-            $draw->width(2);
+        // Ligne de droite
+        $img->rectangle($width - $borderWidth, $y, $width, $y + $rowHeight, function ($draw) {
+            $draw->background('#000000');
         });
         // Ligne verticale séparant Description et État
-        $img->line(($width - 200), $y, ($width - 200), $y + $rowHeight, function ($draw) {
-            $draw->color('#000000');
-            $draw->width(2);
+        $separatorX = $width - 200;
+        $img->rectangle($separatorX, $y, $separatorX + $borderWidth, $y + $rowHeight, function ($draw) {
+            $draw->background('#000000');
         });
         
         $img->text('Description', $padding + 20, $y + $rowHeight / 2, function ($font) use ($fontPath) {
@@ -718,27 +720,28 @@ private function generatePngImage($data, $forDownload = false)
                 $img->rectangle(0, $y, $width, $y + $rowHeight, function ($draw) use ($bgColor) {
                     $draw->background($bgColor);
                 });
-                // Bordures (lignes)
-                $img->line(0, $y, $width, $y, function ($draw) {
-                    $draw->color('#000000');
-                    $draw->width(1);
+                // Bordures (rectangles fins)
+                $cellBorderWidth = 1;
+                // Ligne du haut
+                $img->rectangle(0, $y, $width, $y + $cellBorderWidth, function ($draw) {
+                    $draw->background('#000000');
                 });
-                $img->line(0, $y + $rowHeight, $width, $y + $rowHeight, function ($draw) {
-                    $draw->color('#000000');
-                    $draw->width(1);
+                // Ligne du bas
+                $img->rectangle(0, $y + $rowHeight - $cellBorderWidth, $width, $y + $rowHeight, function ($draw) {
+                    $draw->background('#000000');
                 });
-                $img->line(0, $y, 0, $y + $rowHeight, function ($draw) {
-                    $draw->color('#000000');
-                    $draw->width(1);
+                // Ligne de gauche
+                $img->rectangle(0, $y, $cellBorderWidth, $y + $rowHeight, function ($draw) {
+                    $draw->background('#000000');
                 });
-                $img->line($width, $y, $width, $y + $rowHeight, function ($draw) {
-                    $draw->color('#000000');
-                    $draw->width(1);
+                // Ligne de droite
+                $img->rectangle($width - $cellBorderWidth, $y, $width, $y + $rowHeight, function ($draw) {
+                    $draw->background('#000000');
                 });
                 // Ligne verticale séparant Description et État
-                $img->line(($width - 200), $y, ($width - 200), $y + $rowHeight, function ($draw) {
-                    $draw->color('#000000');
-                    $draw->width(1);
+                $separatorX = $width - 200;
+                $img->rectangle($separatorX, $y, $separatorX + $cellBorderWidth, $y + $rowHeight, function ($draw) {
+                    $draw->background('#000000');
                 });
 
                 // Description du service
