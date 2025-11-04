@@ -38,14 +38,16 @@ services:
         mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache &&
         mkdir -p storage/app &&
         chmod -R 775 storage bootstrap/cache &&
-        if [ ! -f storage/app/initialized ]; then \
-          php artisan key:generate --force; \
-          php artisan migrate --force; \
-          php artisan db:seed --force; \
-          php artisan storage:link || true; \
-          touch storage/app/initialized; \
-        fi && \
-        php artisan storage:link || true && \
+        if [ ! -f storage/app/initialized ]; then
+          php artisan key:generate --force
+          touch storage/app/initialized
+        fi &&
+        php artisan migrate --force &&
+        if [ ! -f storage/app/seeded ]; then
+          php artisan db:seed --force
+          touch storage/app/seeded
+        fi &&
+        php artisan storage:link || true &&
         php artisan config:cache &&
         php artisan route:cache &&
         php artisan view:cache &&
