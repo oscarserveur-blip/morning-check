@@ -31,7 +31,7 @@ services:
         if [ ! -f storage/app/initialized ]; then \
           php artisan key:generate --force; \
           php artisan migrate --force; \
-          php artisan db:seed --class=CompleteSeeder --force; \
+          php artisan db:seed --force; \
           php artisan storage:link || true; \
           touch storage/app/initialized; \
         fi && \
