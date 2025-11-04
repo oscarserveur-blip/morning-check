@@ -541,13 +541,17 @@ private function generatePngImage($data, $forDownload = false)
         $client = $data['client'];
         $template = $data['template'];
         $serviceChecks = $data['serviceChecks']->load('service.category');
+        
+        // Charger tous les intervenants en une seule requête
+        $intervenantIds = $serviceChecks->pluck('intervenant')->filter()->unique();
+        $intervenants = \App\Models\User::whereIn('id', $intervenantIds)->get()->keyBy('id');
 
     // Configuration du canvas (format A4 portrait)
     $width = 2480;  // A4 à 300 DPI
     $height = 3508;
     $padding = 60;
-    $headerHeight = 140;
-    $footerHeight = 120;
+    $headerHeight = 180;  // Plus haut pour logo + titre
+    $footerHeight = 140;  // Plus haut pour 2 lignes de texte
     $rowHeight = 50;
     $sectionHeaderHeight = 50;
     $subsectionHeaderHeight = 40;
@@ -572,10 +576,10 @@ private function generatePngImage($data, $forDownload = false)
     $nokColor = $this->normalizeColor($config['nok_color'] ?? '#FF0000', '#FF0000');
     $warningColor = $this->normalizeColor($config['warning_color'] ?? '#FFC000', '#FFC000');
     
-    // Utiliser la couleur du header pour les sections (comme dans la capture)
-    $sectionBgColor = $headerColor;
-    $headerBgColor = '#F5F5F5';
-    $rowAltColor = '#F9F9F9';
+    // Couleurs pour les sections et tableaux
+    $sectionBgColor = '#333333';  // Gris foncé pour les en-têtes de sections
+    $headerBgColorDark = '#333333';  // Gris foncé pour les en-têtes de colonnes
+    $rowAltColor = '#F9F9F9';  // Gris clair pour les lignes alternées
 
     $manager = new ImageManager(['driver' => 'gd']);
     $img = $manager->canvas($width, $height, '#FFFFFF');
@@ -583,57 +587,113 @@ private function generatePngImage($data, $forDownload = false)
     $y = 0;
 
     // === HEADER ===
-    // Header avec fond rouge complet
-    $img->rectangle(0, $y, $width, $y + $headerHeight, function ($draw) use ($headerColor) {
+    // Header avec fond blanc et bordure rouge
+    $img->rectangle(0, $y, $width, $y + $headerHeight, function ($draw) {
+        $draw->background('#FFFFFF');
+    });
+    // Bordure rouge autour du header
+    $borderWidth = 3;
+    $img->rectangle(0, $y, $width, $y + $borderWidth, function ($draw) use ($headerColor) {
+        $draw->background($headerColor);
+    });
+    $img->rectangle(0, $y + $headerHeight - $borderWidth, $width, $y + $headerHeight, function ($draw) use ($headerColor) {
+        $draw->background($headerColor);
+    });
+    $img->rectangle(0, $y, $borderWidth, $y + $headerHeight, function ($draw) use ($headerColor) {
+        $draw->background($headerColor);
+    });
+    $img->rectangle($width - $borderWidth, $y, $width, $y + $headerHeight, function ($draw) use ($headerColor) {
         $draw->background($headerColor);
     });
 
-    // Logo à gauche
+    // Logo à gauche avec texte "CONNECTE CHALONS"
+    $logoX = $padding + 20;
+    $logoY = $y + 30;
     $logoPath = $template->header_logo ?? $client->logo;
-    $logoX = $padding;
     if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
         try {
             $logo = $manager->make(storage_path('app/public/' . $logoPath));
-            $logo->resize(150, null, function ($constraint) {
+            $logo->resize(120, 120, function ($constraint) {
                 $constraint->aspectRatio();
+                $constraint->upsize();
             });
-            $img->insert($logo, 'top-left', $logoX, $y + 20);
-            $logoX += 180;
+            $img->insert($logo, 'top-left', $logoX, $logoY);
         } catch (\Exception $e) {
             \Log::warning('Erreur chargement logo: ' . $e->getMessage());
         }
     }
+    // Texte "CONNECTE CHALONS" à gauche du logo
+    $img->text('CONNECTE CHALONS', $logoX, $logoY - 10, function ($font) use ($fontPath) {
+        if ($fontPath) $font->file($fontPath);
+        $font->size(28);
+        $font->color('#333333');
+        $font->align('left');
+        $font->valign('top');
+    });
 
-    // Titre au centre (blanc sur fond coloré)
-    $title = $template->header_title ?? 'Bulletin de Santé IT';
+    // Titre au centre en ROUGE
+    $title = $template->header_title ?? 'Bulletin de Santé Connecte Chalons';
     $titleX = $width / 2;
     $titleY = $y + $headerHeight / 2;
     $img->text($title, $titleX, $titleY, function ($font) use ($fontPath) {
         if ($fontPath) $font->file($fontPath);
-        $font->size(56);
+        $font->size(52);
+        $font->color('#FF0000');
+        $font->align('center');
+        $font->valign('middle');
+        $font->bold(true);
+    });
+
+    // Date à droite dans une boîte grise foncée
+    $frenchDate = $check->date_time->locale('fr')->isoFormat('dddd DD/MM/YYYY');
+    $dateBoxWidth = 300;
+    $dateBoxHeight = 60;
+    $dateBoxX = $width - $padding - $dateBoxWidth - 20;
+    $dateBoxY = $y + ($headerHeight - $dateBoxHeight) / 2;
+    $dateBgColor = '#333333';
+    $img->rectangle($dateBoxX, $dateBoxY, $dateBoxX + $dateBoxWidth, $dateBoxY + $dateBoxHeight, function ($draw) use ($dateBgColor) {
+        $draw->background($dateBgColor);
+    });
+    $img->text(ucfirst($frenchDate), $dateBoxX + $dateBoxWidth / 2, $dateBoxY + $dateBoxHeight / 2, function ($font) use ($fontPath) {
+        if ($fontPath) $font->file($fontPath);
+        $font->size(32);
         $font->color('#FFFFFF');
         $font->align('center');
         $font->valign('middle');
     });
 
-    // Date en blanc à droite
-    $frenchDate = $check->date_time->locale('fr')->isoFormat('dddd D MMMM YYYY');
-    $dateX = $width - $padding - 20;
-    $img->text(ucfirst($frenchDate), $dateX, $titleY, function ($font) use ($fontPath) {
-        if ($fontPath) $font->file($fontPath);
-        $font->size(32);
-        $font->color('#FFFFFF');
-        $font->align('right');
-        $font->valign('middle');
-    });
-
-    $y += $headerHeight + 30;
+    $y += $headerHeight + 20;
 
     // === CONTENU PRINCIPAL ===
+    // Détecter s'il y a des KO dans les données pour décider du nombre de colonnes
+    $hasErrors = $serviceChecks->contains(function ($sc) {
+        return $sc->statut === 'error';
+    });
+    
+    // Si des KO existent, utiliser 4 colonnes, sinon 2 colonnes
+    if ($hasErrors) {
+        // 4 colonnes : Description | Statut | Intervenant | Etat
+        $colDescriptionWidth = intval($width * 0.50);  // 50% pour Description
+        $colStatutWidth = intval($width * 0.15);      // 15% pour Statut
+        $colIntervenantWidth = intval($width * 0.20);  // 20% pour Intervenant
+        $colEtatWidth = $width - $colDescriptionWidth - $colStatutWidth - $colIntervenantWidth; // 15% pour Etat
+        $separator1X = $colDescriptionWidth;
+        $separator2X = $colDescriptionWidth + $colStatutWidth;
+        $separator3X = $colDescriptionWidth + $colStatutWidth + $colIntervenantWidth;
+    } else {
+        // 2 colonnes : Description | Etat
+        $colDescriptionWidth = intval($width * 0.75);  // 75% pour Description
+        $colEtatWidth = $width - $colDescriptionWidth; // 25% pour État
+        $separatorX = $colDescriptionWidth;  // Ligne entre Description et État
+    }
+    
+    $cellPadding = 20;  // Padding uniforme pour toutes les cellules
+    $borderWidth = 2;   // Épaisseur bordures principales (extérieures)
+    $cellBorderWidth = 1; // Épaisseur bordures cellules (intérieures)
+    
     // Grouper par sections principales (catégories)
     $mainSections = $serviceChecks->groupBy(function ($sc) {
         $category = $sc->service->category ?? null;
-        // Regrouper par catégorie parente si disponible
         return $category ? $category->title : 'Autres';
     });
 
@@ -668,181 +728,249 @@ private function generatePngImage($data, $forDownload = false)
         });
         $y += $sectionHeaderHeight;
 
-        // === EN-TÊTE DE TABLEAU (gris clair) ===
-        // Calcul des largeurs de colonnes
-        $colServiceWidth = intval($width * 0.50);  // 50% pour Service
-        $colEtatWidth = intval($width * 0.20);     // 20% pour État
-        $colObsWidth = $width - $colServiceWidth - $colEtatWidth; // Reste pour Observations
-        
-        $img->rectangle(0, $y, $width, $y + $rowHeight, function ($draw) use ($headerBgColor) {
-            $draw->background($headerBgColor);
+        // === EN-TÊTE DE COLONNES (gris foncé) ===
+        $headerY = $y;
+        $img->rectangle(0, $headerY, $width, $headerY + $rowHeight, function ($draw) use ($headerBgColorDark) {
+            $draw->background($headerBgColorDark);
         });
-        // Bordures (rectangles fins)
-        $borderWidth = 2;
-        // Ligne du haut
-        $img->rectangle(0, $y, $width, $y + $borderWidth, function ($draw) {
+        // Bordures
+        $img->rectangle(0, $headerY, $width, $headerY + $cellBorderWidth, function ($draw) {
             $draw->background('#000000');
         });
-        // Ligne du bas
-        $img->rectangle(0, $y + $rowHeight - $borderWidth, $width, $y + $rowHeight, function ($draw) {
+        $img->rectangle(0, $headerY + $rowHeight - $cellBorderWidth, $width, $headerY + $rowHeight, function ($draw) {
             $draw->background('#000000');
         });
-        // Ligne de gauche
-        $img->rectangle(0, $y, $borderWidth, $y + $rowHeight, function ($draw) {
+        $img->rectangle(0, $headerY, $cellBorderWidth, $headerY + $rowHeight, function ($draw) {
             $draw->background('#000000');
         });
-        // Ligne de droite
-        $img->rectangle($width - $borderWidth, $y, $width, $y + $rowHeight, function ($draw) {
-            $draw->background('#000000');
-        });
-        // Lignes verticales séparant les colonnes
-        $separator1X = $colServiceWidth;
-        $separator2X = $colServiceWidth + $colEtatWidth;
-        $img->rectangle($separator1X, $y, $separator1X + $borderWidth, $y + $rowHeight, function ($draw) {
-            $draw->background('#000000');
-        });
-        $img->rectangle($separator2X, $y, $separator2X + $borderWidth, $y + $rowHeight, function ($draw) {
+        $img->rectangle($width - $cellBorderWidth, $headerY, $width, $headerY + $rowHeight, function ($draw) {
             $draw->background('#000000');
         });
         
-        // En-têtes de colonnes
-        // Service - aligné à gauche
-        $img->text('Service', $padding + 20, $y + $rowHeight / 2, function ($font) use ($fontPath) {
-            if ($fontPath) $font->file($fontPath);
-            $font->size(36);
-            $font->color('#000000');
-            $font->align('left');
-            $font->valign('middle');
-        });
-        // État - centré
-        $img->text('État', $colServiceWidth + ($colEtatWidth / 2), $y + $rowHeight / 2, function ($font) use ($fontPath) {
-            if ($fontPath) $font->file($fontPath);
-            $font->size(36);
-            $font->color('#000000');
-            $font->align('center');
-            $font->valign('middle');
-        });
-        // Observations - aligné à gauche
-        $img->text('Observations', $separator2X + $padding + 20, $y + $rowHeight / 2, function ($font) use ($fontPath) {
-            if ($fontPath) $font->file($fontPath);
-            $font->size(36);
-            $font->color('#000000');
-            $font->align('left');
-            $font->valign('middle');
-        });
+        if ($hasErrors) {
+            // 4 colonnes : Description | Statut | Intervenant | Etat
+            $img->rectangle($separator1X, $headerY, $separator1X + $cellBorderWidth, $headerY + $rowHeight, function ($draw) {
+                $draw->background('#000000');
+            });
+            $img->rectangle($separator2X, $headerY, $separator2X + $cellBorderWidth, $headerY + $rowHeight, function ($draw) {
+                $draw->background('#000000');
+            });
+            $img->rectangle($separator3X, $headerY, $separator3X + $cellBorderWidth, $headerY + $rowHeight, function ($draw) {
+                $draw->background('#000000');
+            });
+            
+            $img->text('Description', $padding + $cellPadding, $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
+                if ($fontPath) $font->file($fontPath);
+                $font->size(34);
+                $font->color('#FFFFFF');
+                $font->align('left');
+                $font->valign('middle');
+                $font->bold(true);
+            });
+            $img->text('Statut', $separator1X + ($colStatutWidth / 2), $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
+                if ($fontPath) $font->file($fontPath);
+                $font->size(34);
+                $font->color('#FFFFFF');
+                $font->align('center');
+                $font->valign('middle');
+                $font->bold(true);
+            });
+            $img->text('Intervenant', $separator2X + ($colIntervenantWidth / 2), $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
+                if ($fontPath) $font->file($fontPath);
+                $font->size(34);
+                $font->color('#FFFFFF');
+                $font->align('center');
+                $font->valign('middle');
+                $font->bold(true);
+            });
+            $img->text('Etat', $separator3X + ($colEtatWidth / 2), $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
+                if ($fontPath) $font->file($fontPath);
+                $font->size(34);
+                $font->color('#FFFFFF');
+                $font->align('center');
+                $font->valign('middle');
+                $font->bold(true);
+            });
+        } else {
+            // 2 colonnes : Description | Etat
+            $img->rectangle($separatorX, $headerY, $separatorX + $cellBorderWidth, $headerY + $rowHeight, function ($draw) {
+                $draw->background('#000000');
+            });
+            
+            $img->text('Description', $padding + $cellPadding, $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
+                if ($fontPath) $font->file($fontPath);
+                $font->size(36);
+                $font->color('#FFFFFF');
+                $font->align('left');
+                $font->valign('middle');
+                $font->bold(true);
+            });
+            $img->text('Etat', $separatorX + ($colEtatWidth / 2), $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
+                if ($fontPath) $font->file($fontPath);
+                $font->size(36);
+                $font->color('#FFFFFF');
+                $font->align('center');
+                $font->valign('middle');
+                $font->bold(true);
+            });
+        }
         $y += $rowHeight;
 
-        // Grouper par sous-sections si nécessaire (ex: Applications, INFORMATIQUE)
-        $subSections = $sectionServices->groupBy(function ($sc) {
-            // Pour l'instant, pas de sous-section, on liste directement les services
-            return 'all';
-        });
+        // Afficher les services
+        $rowIndex = 0;
+        foreach ($sectionServices as $serviceCheck) {
+            $bgColor = ($rowIndex % 2 === 0) ? '#FFFFFF' : $rowAltColor;
+            $rowY = $y;
+            
+            // Ligne de service
+            $img->rectangle(0, $rowY, $width, $rowY + $rowHeight, function ($draw) use ($bgColor) {
+                $draw->background($bgColor);
+            });
+            // Bordures horizontales
+            $img->rectangle(0, $rowY, $width, $rowY + $cellBorderWidth, function ($draw) {
+                $draw->background('#000000');
+            });
+            $img->rectangle(0, $rowY + $rowHeight - $cellBorderWidth, $width, $rowY + $rowHeight, function ($draw) {
+                $draw->background('#000000');
+            });
+            // Bordures verticales
+            $img->rectangle(0, $rowY, $cellBorderWidth, $rowY + $rowHeight, function ($draw) {
+                $draw->background('#000000');
+            });
+            $img->rectangle($width - $cellBorderWidth, $rowY, $width, $rowY + $rowHeight, function ($draw) {
+                $draw->background('#000000');
+            });
+            
+            // Déterminer les labels et couleurs
+            $statusLabel = match ($serviceCheck->statut) {
+                'success' => 'OK',
+                'error'   => 'KO',
+                'warning' => 'AVERTISSEMENT',
+                'in_progress' => 'En cours',
+                default   => strtoupper($serviceCheck->statut ?? 'INCONNU'),
+            };
 
-        foreach ($subSections as $subSectionTitle => $services) {
-            // Si sous-section (ex: "Applications", "INFORMATIQUE"), ajouter un titre
-            if ($subSectionTitle !== 'all') {
-                $img->rectangle(0, $y, $width, $y + $subsectionHeaderHeight, function ($draw) {
-                    $draw->background('#E8E8E8');
+            $statusColor = match ($serviceCheck->statut) {
+                'success' => $okColor,
+                'error'   => $nokColor,
+                'warning' => $warningColor,
+                default   => '#999999',
+            };
+            
+            if ($hasErrors) {
+                // 4 colonnes : Description | Statut | Intervenant | Etat
+                // Bordures verticales
+                $img->rectangle($separator1X, $rowY, $separator1X + $cellBorderWidth, $rowY + $rowHeight, function ($draw) {
+                    $draw->background('#000000');
                 });
-                $img->text($subSectionTitle, $padding + 20, $y + $subsectionHeaderHeight / 2, function ($font) use ($fontPath) {
-                    if ($fontPath) $font->file($fontPath);
-                    $font->size(38);
-                    $font->color('#000000');
-                    $font->valign('middle');
-                    $font->bold(true);
+                $img->rectangle($separator2X, $rowY, $separator2X + $cellBorderWidth, $rowY + $rowHeight, function ($draw) {
+                    $draw->background('#000000');
                 });
-                $y += $subsectionHeaderHeight;
-            }
-
-            // Services dans cette sous-section
-            $rowIndex = 0;
-            foreach ($services as $serviceCheck) {
-                $bgColor = ($rowIndex % 2 === 0) ? '#FFFFFF' : $rowAltColor;
+                $img->rectangle($separator3X, $rowY, $separator3X + $cellBorderWidth, $rowY + $rowHeight, function ($draw) {
+                    $draw->background('#000000');
+                });
                 
-                // Ligne de service
-                $img->rectangle(0, $y, $width, $y + $rowHeight, function ($draw) use ($bgColor) {
-                    $draw->background($bgColor);
-                });
-                // Bordures (rectangles fins)
-                $cellBorderWidth = 1;
-                // Ligne du haut
-                $img->rectangle(0, $y, $width, $y + $cellBorderWidth, function ($draw) {
-                    $draw->background('#000000');
-                });
-                // Ligne du bas
-                $img->rectangle(0, $y + $rowHeight - $cellBorderWidth, $width, $y + $rowHeight, function ($draw) {
-                    $draw->background('#000000');
-                });
-                // Ligne de gauche
-                $img->rectangle(0, $y, $cellBorderWidth, $y + $rowHeight, function ($draw) {
-                    $draw->background('#000000');
-                });
-                // Ligne de droite
-                $img->rectangle($width - $cellBorderWidth, $y, $width, $y + $rowHeight, function ($draw) {
-                    $draw->background('#000000');
-                });
-                // Lignes verticales séparant les colonnes
-                $img->rectangle($separator1X, $y, $separator1X + $cellBorderWidth, $y + $rowHeight, function ($draw) {
-                    $draw->background('#000000');
-                });
-                $img->rectangle($separator2X, $y, $separator2X + $cellBorderWidth, $y + $rowHeight, function ($draw) {
-                    $draw->background('#000000');
-                });
-
-                // Service (colonne 1) - aligné à gauche
+                // Description (colonne 1) - titre du service + observations si KO
                 $serviceText = $serviceCheck->service->title ?? 'N/A';
-                $serviceX = $padding + 20;
-                $img->text($serviceText, $serviceX, $y + $rowHeight / 2, function ($font) use ($fontPath) {
-                    if ($fontPath) $font->file($fontPath);
-                    $font->size(34);
-                    $font->color('#000000');
-                    $font->align('left');
-                    $font->valign('middle');
-                });
-
-                // Statut (colonne 2)
-                $statusLabel = match ($serviceCheck->statut) {
-                    'success' => 'OK',
-                    'error'   => 'NOK',
-                    'warning' => 'AVERTISSEMENT',
-                    default   => strtoupper($serviceCheck->statut ?? 'INCONNU'),
-                };
-
-                $statusColor = match ($serviceCheck->statut) {
-                    'success' => $okColor,
-                    'error'   => $nokColor,
-                    'warning' => $warningColor,
-                    default   => '#999999',
-                };
-
-                // Rectangle pour le statut
-                $statusX = $separator1X;
-                $statusWidth = $colEtatWidth;
-                $img->rectangle($statusX, $y, $statusX + $statusWidth, $y + $rowHeight, function ($draw) use ($statusColor) {
-                    $draw->background($statusColor);
-                });
-                $img->text($statusLabel, $statusX + $statusWidth / 2, $y + $rowHeight / 2, function ($font) use ($fontPath) {
-                    if ($fontPath) $font->file($fontPath);
-                    $font->size(32);
-                    $font->color('#FFFFFF');
-                    $font->align('center');
-                    $font->valign('middle');
-                });
-
-                // Observations (colonne 3) - aligné à gauche
                 $observations = $serviceCheck->observations ?? $serviceCheck->notes ?? '';
-                $obsX = $separator2X + $padding + 20;
-                $img->text($observations, $obsX, $y + $rowHeight / 2, function ($font) use ($fontPath) {
+                if ($serviceCheck->statut === 'error' && $observations) {
+                    $serviceText .= ' ' . $observations;
+                }
+                $serviceTextX = $padding + $cellPadding;
+                $img->text($serviceText, $serviceTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
                     if ($fontPath) $font->file($fontPath);
                     $font->size(30);
                     $font->color('#000000');
                     $font->align('left');
                     $font->valign('middle');
                 });
-
-                $y += $rowHeight;
-                $rowIndex++;
+                
+                // Statut (colonne 2) - "En cours" ou autre statut intermédiaire
+                $statutText = match ($serviceCheck->statut) {
+                    'in_progress' => 'En cours',
+                    'pending' => 'En attente',
+                    default => '',
+                };
+                $statutTextX = $separator1X + ($colStatutWidth / 2);
+                $img->text($statutText, $statutTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
+                    if ($fontPath) $font->file($fontPath);
+                    $font->size(30);
+                    $font->color('#000000');
+                    $font->align('center');
+                    $font->valign('middle');
+                });
+                
+                // Intervenant (colonne 3) - nom de l'utilisateur
+                $intervenantName = '';
+                if ($serviceCheck->intervenant && isset($intervenants[$serviceCheck->intervenant])) {
+                    $intervenantName = $intervenants[$serviceCheck->intervenant]->name;
+                }
+                // Si pas d'intervenant assigné mais que c'est un KO, afficher "data center (réseau)" ou autre
+                if (empty($intervenantName) && $serviceCheck->statut === 'error') {
+                    $intervenantName = 'data center (réseau)';
+                }
+                $intervenantTextX = $separator2X + ($colIntervenantWidth / 2);
+                $img->text($intervenantName, $intervenantTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
+                    if ($fontPath) $font->file($fontPath);
+                    $font->size(28);
+                    $font->color('#000000');
+                    $font->align('center');
+                    $font->valign('middle');
+                });
+                
+                // Etat (colonne 4) - KO en rouge ou OK en vert
+                $etatCellX = $separator3X + $cellBorderWidth;
+                $etatCellWidth = $colEtatWidth - $cellBorderWidth;
+                $etatCellY = $rowY + $cellBorderWidth;
+                $etatCellHeight = $rowHeight - ($cellBorderWidth * 2);
+                $img->rectangle($etatCellX, $etatCellY, $etatCellX + $etatCellWidth, $etatCellY + $etatCellHeight, function ($draw) use ($statusColor) {
+                    $draw->background($statusColor);
+                });
+                $etatTextX = $separator3X + ($colEtatWidth / 2);
+                $img->text($statusLabel, $etatTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
+                    if ($fontPath) $font->file($fontPath);
+                    $font->size(32);
+                    $font->color('#FFFFFF');
+                    $font->align('center');
+                    $font->valign('middle');
+                });
+            } else {
+                // 2 colonnes : Description | Etat
+                $img->rectangle($separatorX, $rowY, $separatorX + $cellBorderWidth, $rowY + $rowHeight, function ($draw) {
+                    $draw->background('#000000');
+                });
+                
+                // Description (colonne 1)
+                $serviceText = $serviceCheck->service->title ?? 'N/A';
+                $serviceTextX = $padding + $cellPadding;
+                $img->text($serviceText, $serviceTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
+                    if ($fontPath) $font->file($fontPath);
+                    $font->size(34);
+                    $font->color('#000000');
+                    $font->align('left');
+                    $font->valign('middle');
+                });
+                
+                // Etat (colonne 2)
+                $etatCellX = $separatorX + $cellBorderWidth;
+                $etatCellWidth = $colEtatWidth - $cellBorderWidth;
+                $etatCellY = $rowY + $cellBorderWidth;
+                $etatCellHeight = $rowHeight - ($cellBorderWidth * 2);
+                $img->rectangle($etatCellX, $etatCellY, $etatCellX + $etatCellWidth, $etatCellY + $etatCellHeight, function ($draw) use ($statusColor) {
+                    $draw->background($statusColor);
+                });
+                $etatTextX = $separatorX + ($colEtatWidth / 2);
+                $img->text($statusLabel, $etatTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
+                    if ($fontPath) $font->file($fontPath);
+                    $font->size(32);
+                    $font->color('#FFFFFF');
+                    $font->align('center');
+                    $font->valign('middle');
+                });
             }
+
+            $y += $rowHeight;
+            $rowIndex++;
         }
         $y += 20; // Espace entre sections
     }
@@ -853,20 +981,28 @@ private function generatePngImage($data, $forDownload = false)
         $draw->background($footerColor);
     });
     
-    $footerText = $template->footer_text ?? 'EXPLOITATION, Connecte Châlons : https://glpi.connecte-chalons.fr';
-    $footerLines = explode("\n", $footerText);
-    $lineHeight = 35;
-    $startY = $footerY + 30;
+    // Ligne principale en blanc
+    $footerTextMain = $template->footer_text ?? 'EXPLOITATION, Connecte Châlons : https://glpi.connecte-chalons.fr';
+    $footerTextX = $padding + 20;
+    $footerTextY = $footerY + 40;
+    $img->text($footerTextMain, $footerTextX, $footerTextY, function ($font) use ($fontPath) {
+        if ($fontPath) $font->file($fontPath);
+        $font->size(32);
+        $font->color('#FFFFFF');
+        $font->align('left');
+        $font->valign('middle');
+    });
     
-    foreach ($footerLines as $index => $line) {
-        $img->text($line, $width / 2, $startY + ($index * $lineHeight), function ($font) use ($fontPath) {
-            if ($fontPath) $font->file($fontPath);
-            $font->size(28);
-            $font->color('#FFFFFF');
-            $font->align('center');
-            $font->valign('middle');
-        });
-    }
+    // Ligne d'urgence en rouge (plus petite)
+    $footerTextUrgent = '(en cas d\'urgence uniquement): support.chalons@bouyguestelecom-solution.fr';
+    $footerTextUrgentY = $footerY + 85;
+    $img->text($footerTextUrgent, $footerTextX, $footerTextUrgentY, function ($font) use ($fontPath) {
+        if ($fontPath) $font->file($fontPath);
+        $font->size(26);
+        $font->color('#FF0000');
+        $font->align('left');
+        $font->valign('middle');
+    });
 
     // Output
     $pngContent = (string) $img->encode('png');
