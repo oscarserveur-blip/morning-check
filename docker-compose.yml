@@ -43,10 +43,7 @@ services:
           touch storage/app/initialized
         fi &&
         php artisan migrate --force &&
-        if [ ! -f storage/app/seeded ]; then
-          php artisan db:seed --force
-          touch storage/app/seeded
-        fi &&
+        php artisan db:seed --force &&
         php artisan storage:link || true &&
         php artisan config:cache &&
         php artisan route:cache &&

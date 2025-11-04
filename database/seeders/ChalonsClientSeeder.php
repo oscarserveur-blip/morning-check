@@ -15,15 +15,41 @@ class ChalonsClientSeeder extends Seeder
     {
         $user = User::first();
         if (!$user) {
+            $this->command->warn('Aucun utilisateur trouvé. Veuillez d\'abord exécuter UserSeeder.');
             return;
         }
 
-        // Ensure a template exists
-        $template = Template::first() ?? Template::create([
-            'name' => 'Template par défaut',
-            'description' => 'Template initial pour les clients',
-            'type' => 'excel',
-        ]);
+        // Créer un template PNG spécifique pour Châlons
+        $template = Template::firstOrCreate(
+            ['name' => 'Template Châlons PNG'],
+            [
+                'description' => 'Template PNG pour le client Châlons',
+                'type' => 'png',
+                'header_title' => 'Bulletin de Santé IT',
+                'header_color' => '#0B5AA0',
+                'footer_color' => '#C00000',
+                'footer_text' => 'EXPLOITATION, Connecte Châlons : https://glpi.connecte-chalons.fr',
+                'config' => [
+                    'ok_color' => '#00B050',
+                    'nok_color' => '#FF0000',
+                    'warning_color' => '#FFC000',
+                ],
+            ]
+        );
+
+        // Mettre à jour le template si nécessaire (pour s'assurer qu'il est en PNG)
+        if ($template->type !== 'png') {
+            $template->update([
+                'type' => 'png',
+                'header_color' => $template->header_color ?? '#0B5AA0',
+                'footer_color' => $template->footer_color ?? '#C00000',
+                'config' => array_merge([
+                    'ok_color' => '#00B050',
+                    'nok_color' => '#FF0000',
+                    'warning_color' => '#FFC000',
+                ], $template->config ?? []),
+            ]);
+        }
 
         // Create or retrieve the client
         $client = Client::firstOrCreate(
@@ -34,6 +60,16 @@ class ChalonsClientSeeder extends Seeder
                 'check_time' => '09:00',
             ]
         );
+
+        // Mettre à jour le template_id si nécessaire
+        if ($client->template_id !== $template->id) {
+            $client->update(['template_id' => $template->id]);
+        }
+
+        // Associer l'utilisateur admin au client Châlons
+        if ($user->isAdmin()) {
+            $user->clients()->syncWithoutDetaching([$client->id]);
+        }
 
         $categoriesDefinition = [
             'Applications' => [

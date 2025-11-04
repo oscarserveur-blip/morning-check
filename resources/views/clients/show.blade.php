@@ -891,6 +891,12 @@ function showManageServicesSection() {
     // À compléter : affichage de la section d'ajout/suppression
     alert('Gestion des services à venir !');
 }
+
+// Fonction pour rafraîchir la liste des checks
+function refreshChecksList() {
+    // Recharger la page pour afficher les changements
+    window.location.reload();
+}
 </script>
 @endpush
 

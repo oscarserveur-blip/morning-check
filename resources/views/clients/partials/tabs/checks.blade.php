@@ -254,13 +254,16 @@ function createAutoCheck() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            Swal.close();
-            // Ouvrir directement le modal du check créé
-            if (typeof viewCheck === 'function') {
-                viewCheck(data.check_id || data.check.id);
-            } else if (typeof openCheckModal === 'function') {
-                openCheckModal(data.check_id || data.check.id);
-            }
+            Swal.fire({
+                icon: 'success',
+                title: 'Check créé',
+                text: 'Le check a été créé avec succès.',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
+                // Rafraîchir la page pour afficher le nouveau check
+                window.location.reload();
+            });
         } else {
             throw new Error(data.message || 'Erreur lors de la création du check');
         }
@@ -272,6 +275,12 @@ function createAutoCheck() {
             text: error.message
         });
     });
+}
+
+// Fonction pour rafraîchir la liste des checks
+function refreshChecksList() {
+    // Recharger la page pour afficher les changements
+    window.location.reload();
 }
 
 function downloadCheck(checkId) {
