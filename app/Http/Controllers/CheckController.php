@@ -500,158 +500,104 @@ class CheckController extends Controller
 private function exportToPng($data)
 {
     try {
-        $check = $data['check'];
-        $client = $data['client'];
-        $template = $data['template'];
-        $serviceChecks = $data['serviceChecks'];
+        return $this->generatePngImage($data, true);
+    } catch (\Throwable $e) {
+        return back()->with('error', 'Erreur génération PNG: ' . $e->getMessage());
+    }
+}
 
-    // Configuration du canvas
-    $width = 2000;
-    $height = 2500;
-    $padding = 50;
+/**
+ * Generate PNG image with exact design matching the reference
+ */
+private function generatePngImage($data, $forDownload = false)
+{
+    $check = $data['check'];
+    $client = $data['client'];
+    $template = $data['template'];
+    $serviceChecks = $data['serviceChecks']->load('service.category');
 
-    // Police TTF (support accents)
-    $fontPath = storage_path('fonts/DejaVuSans.ttf');
-    if (!file_exists($fontPath)) {
-        $fontPath = null;
+    // Configuration du canvas (format A4 portrait)
+    $width = 2480;  // A4 à 300 DPI
+    $height = 3508;
+    $padding = 60;
+    $headerHeight = 140;
+    $footerHeight = 120;
+    $rowHeight = 50;
+    $sectionHeaderHeight = 50;
+    $subsectionHeaderHeight = 40;
+
+    // Vérifier si les fonctions TTF sont disponibles
+    $hasTtfSupport = function_exists('imagettfbbox');
+    $fontPath = null;
+    if ($hasTtfSupport) {
+        $fontPath = storage_path('fonts/DejaVuSans.ttf');
+        if (!file_exists($fontPath)) {
+            $fontPath = null;
+        }
     }
 
-    // Config depuis le template
     $config = $template->config ?? [];
     $headerColor = $template->header_color ?? '#FF0000';
     $footerColor = $template->footer_color ?? '#C00000';
     $okColor = $config['ok_color'] ?? '#00B050';
     $nokColor = $config['nok_color'] ?? '#FF0000';
     $warningColor = $config['warning_color'] ?? '#FFC000';
+    $sectionBgColor = '#444444';
+    $headerBgColor = '#F5F5F5';
+    $rowAltColor = '#F9F9F9';
 
     $manager = new ImageManager(['driver' => 'gd']);
     $img = $manager->canvas($width, $height, '#FFFFFF');
 
-    // En-tête
-    $img->rectangle(0, 0, $width, 120, function ($draw) use ($headerColor) {
+    $y = 0;
+
+    // === HEADER ===
+    // Bordure rouge en haut
+    $img->rectangle(0, $y, $width, $y + 5, function ($draw) use ($headerColor) {
         $draw->background($headerColor);
     });
+    $y += 5;
 
-    // Logo
+    // Zone header avec fond blanc
+    $headerY = $y;
+    $img->rectangle(0, $y, $width, $y + $headerHeight, function ($draw) {
+        $draw->background('#FFFFFF');
+    });
+
+    // Logo à gauche
     $logoPath = $template->header_logo ?? $client->logo;
+    $logoX = $padding;
     if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
         $logo = $manager->make(storage_path('app/public/' . $logoPath));
-        $logo->resize(120, null, function ($constraint) {
+        $logo->resize(150, null, function ($constraint) {
             $constraint->aspectRatio();
         });
-        $img->insert($logo, 'top-left', $padding, 15);
+        $img->insert($logo, 'top-left', $logoX, $y + 20);
+        $logoX += 180;
     }
 
-    // Titre
-    $img->text($template->header_title ?? 'Bulletin de Santé Connecte Châlons', $width / 2, 60, function ($font) use ($fontPath) {
+    // Titre au centre (rouge)
+    $title = $template->header_title ?? 'Bulletin de Santé Connecte Chalons';
+    $titleX = $width / 2;
+    $titleY = $y + $headerHeight / 2;
+    $img->text($title, $titleX, $titleY, function ($font) use ($fontPath, $headerColor) {
         if ($fontPath) $font->file($fontPath);
-        $font->size(60);
-        $font->color('#FFFFFF');
+        $font->size(56);
+        $font->color($headerColor);
         $font->align('center');
         $font->valign('middle');
     });
 
-    // Date
-    $img->text($check->date_time->locale('fr')->isoFormat('dddd DD/MM/YYYY'), $width - $padding, 60, function ($font) use ($fontPath) {
-        if ($fontPath) $font->file($fontPath);
-        $font->size(45);
-        $font->color('#FFFFFF');
-        $font->align('right');
-        $font->valign('middle');
+    // Date dans boîte grise à droite
+    $dateBoxWidth = 280;
+    $dateBoxX = $width - $dateBoxWidth - $padding;
+    $dateBoxY = $y + 20;
+    $dateBoxHeight = 60;
+    $img->rectangle($dateBoxX, $dateBoxY, $dateBoxX + $dateBoxWidth, $dateBoxY + $dateBoxHeight, function ($draw) {
+        $draw->background('#444444');
     });
-
-    $y = 150;
-
-    // Grouper par catégories
-    $categories = $serviceChecks->groupBy(function ($sc) {
-        return $sc->service->category->title ?? 'Autres';
-    });
-
-    foreach ($categories as $catTitle => $services) {
-        // Section header
-        $img->rectangle(0, $y, $width, $y + 60, function ($draw) {
-            $draw->background('#444444');
-        });
-        $img->text($catTitle, $padding, $y + 30, function ($font) use ($fontPath) {
-            if ($fontPath) $font->file($fontPath);
-            $font->size(42);
-            $font->color('#FFFFFF');
-            $font->valign('middle');
-        });
-        $y += 70;
-
-        // Colonnes
-        $img->rectangle(0, $y, $width, $y + 50, function ($draw) {
-            $draw->background('#DDDDDD');
-        });
-        $img->text('Description', $padding, $y + 25, function ($font) use ($fontPath) {
-            if ($fontPath) $font->file($fontPath);
-            $font->size(38);
-            $font->color('#000000');
-            $font->valign('middle');
-        });
-        $img->text('État', $width - 200, $y + 25, function ($font) use ($fontPath) {
-            if ($fontPath) $font->file($fontPath);
-            $font->size(38);
-            $font->color('#000000');
-            $font->align('center');
-            $font->valign('middle');
-        });
-        $y += 60;
-
-        // Services
-        foreach ($services as $serviceCheck) {
-            $img->rectangle(0, $y, $width, $y + 65, function ($draw) {
-                $draw->background('#FFFFFF');
-                $draw->border(1, '#000000'); // Bordures visibles
-            });
-
-            // Service
-            $img->text($serviceCheck->service->title, $padding, $y + 35, function ($font) use ($fontPath) {
-                if ($fontPath) $font->file($fontPath);
-                $font->size(36);
-                $font->color('#000000');
-                $font->valign('middle');
-            });
-
-            // Traduction statuts
-            $statusLabel = match ($serviceCheck->statut) {
-                'success' => 'OK',
-                'error'   => 'NOK',
-                'warning' => 'AVERTISSEMENT',
-                default   => 'INCONNU',
-            };
-
-            $statusColor = match ($serviceCheck->statut) {
-                'success' => $okColor,
-                'error'   => $nokColor,
-                'warning' => $warningColor,
-                default   => '#999999',
-            };
-
-            $img->rectangle($width - 250, $y, $width - $padding, $y + 65, function ($draw) use ($statusColor) {
-                $draw->background($statusColor);
-                $draw->border(1, '#000000');
-            });
-
-            $img->text($statusLabel, $width - 150, $y + 35, function ($font) use ($fontPath) {
-                if ($fontPath) $font->file($fontPath);
-                $font->size(34);
-                $font->color('#FFFFFF');
-                $font->align('center');
-                $font->valign('middle');
-            });
-
-            $y += 75;
-        }
-        $y += 40;
-    }
-
-    // Footer
-    $img->rectangle(0, $height - 100, $width, $height, function ($draw) use ($footerColor) {
-        $draw->background($footerColor);
-    });
-    $img->text($template->footer_text ?? 'EXPLOITATION, Connecte Châlons : https://glpi.connecte-chalons.fr', $width / 2, $height - 50, function ($font) use ($fontPath) {
+    $frenchDate = $check->date_time->locale('fr')->isoFormat('dddd DD/MM/YYYY');
+    $img->text(ucfirst($frenchDate), $dateBoxX + $dateBoxWidth / 2, $dateBoxY + $dateBoxHeight / 2, function ($font) use ($fontPath) {
         if ($fontPath) $font->file($fontPath);
         $font->size(32);
         $font->color('#FFFFFF');
@@ -659,16 +605,218 @@ private function exportToPng($data)
         $font->valign('middle');
     });
 
+    $y += $headerHeight + 30;
+
+    // === CONTENU PRINCIPAL ===
+    // Grouper par sections principales (catégories)
+    $mainSections = $serviceChecks->groupBy(function ($sc) {
+        $category = $sc->service->category ?? null;
+        // Regrouper par catégorie parente si disponible
+        return $category ? $category->title : 'Autres';
+    });
+
+    foreach ($mainSections as $mainSectionTitle => $sectionServices) {
+        // === TITRE DE SECTION PRINCIPALE (gris foncé) ===
+        $img->rectangle(0, $y, $width, $y + $sectionHeaderHeight, function ($draw) use ($sectionBgColor) {
+            $draw->background($sectionBgColor);
+        });
+        // Bordures
+        $img->line(0, $y, $width, $y, function ($draw) {
+            $draw->color('#000000');
+            $draw->width(2);
+        });
+        $img->line(0, $y + $sectionHeaderHeight, $width, $y + $sectionHeaderHeight, function ($draw) {
+            $draw->color('#000000');
+            $draw->width(2);
+        });
+        $img->line(0, $y, 0, $y + $sectionHeaderHeight, function ($draw) {
+            $draw->color('#000000');
+            $draw->width(2);
+        });
+        $img->line($width, $y, $width, $y + $sectionHeaderHeight, function ($draw) {
+            $draw->color('#000000');
+            $draw->width(2);
+        });
+        $img->text($mainSectionTitle, $padding, $y + $sectionHeaderHeight / 2, function ($font) use ($fontPath) {
+            if ($fontPath) $font->file($fontPath);
+            $font->size(44);
+            $font->color('#FFFFFF');
+            $font->valign('middle');
+        });
+        $y += $sectionHeaderHeight;
+
+        // === EN-TÊTE DE TABLEAU (gris clair) ===
+        $img->rectangle(0, $y, $width, $y + $rowHeight, function ($draw) use ($headerBgColor) {
+            $draw->background($headerBgColor);
+        });
+        // Bordures (lignes)
+        $img->line(0, $y, $width, $y, function ($draw) {
+            $draw->color('#000000');
+            $draw->width(2);
+        });
+        $img->line(0, $y + $rowHeight, $width, $y + $rowHeight, function ($draw) {
+            $draw->color('#000000');
+            $draw->width(2);
+        });
+        $img->line(0, $y, 0, $y + $rowHeight, function ($draw) {
+            $draw->color('#000000');
+            $draw->width(2);
+        });
+        $img->line($width, $y, $width, $y + $rowHeight, function ($draw) {
+            $draw->color('#000000');
+            $draw->width(2);
+        });
+        // Ligne verticale séparant Description et État
+        $img->line(($width - 200), $y, ($width - 200), $y + $rowHeight, function ($draw) {
+            $draw->color('#000000');
+            $draw->width(2);
+        });
+        
+        $img->text('Description', $padding + 20, $y + $rowHeight / 2, function ($font) use ($fontPath) {
+            if ($fontPath) $font->file($fontPath);
+            $font->size(36);
+            $font->color('#000000');
+            $font->valign('middle');
+        });
+        $img->text('État', $width - 100, $y + $rowHeight / 2, function ($font) use ($fontPath) {
+            if ($fontPath) $font->file($fontPath);
+            $font->size(36);
+            $font->color('#000000');
+            $font->align('center');
+            $font->valign('middle');
+        });
+        $y += $rowHeight;
+
+        // Grouper par sous-sections si nécessaire (ex: Applications, INFORMATIQUE)
+        $subSections = $sectionServices->groupBy(function ($sc) {
+            // Pour l'instant, pas de sous-section, on liste directement les services
+            return 'all';
+        });
+
+        foreach ($subSections as $subSectionTitle => $services) {
+            // Si sous-section (ex: "Applications", "INFORMATIQUE"), ajouter un titre
+            if ($subSectionTitle !== 'all') {
+                $img->rectangle(0, $y, $width, $y + $subsectionHeaderHeight, function ($draw) {
+                    $draw->background('#E8E8E8');
+                });
+                $img->text($subSectionTitle, $padding + 20, $y + $subsectionHeaderHeight / 2, function ($font) use ($fontPath) {
+                    if ($fontPath) $font->file($fontPath);
+                    $font->size(38);
+                    $font->color('#000000');
+                    $font->valign('middle');
+                    $font->bold(true);
+                });
+                $y += $subsectionHeaderHeight;
+            }
+
+            // Services dans cette sous-section
+            $rowIndex = 0;
+            foreach ($services as $serviceCheck) {
+                $bgColor = ($rowIndex % 2 === 0) ? '#FFFFFF' : $rowAltColor;
+                
+                // Ligne de service
+                $img->rectangle(0, $y, $width, $y + $rowHeight, function ($draw) use ($bgColor) {
+                    $draw->background($bgColor);
+                });
+                // Bordures (lignes)
+                $img->line(0, $y, $width, $y, function ($draw) {
+                    $draw->color('#000000');
+                    $draw->width(1);
+                });
+                $img->line(0, $y + $rowHeight, $width, $y + $rowHeight, function ($draw) {
+                    $draw->color('#000000');
+                    $draw->width(1);
+                });
+                $img->line(0, $y, 0, $y + $rowHeight, function ($draw) {
+                    $draw->color('#000000');
+                    $draw->width(1);
+                });
+                $img->line($width, $y, $width, $y + $rowHeight, function ($draw) {
+                    $draw->color('#000000');
+                    $draw->width(1);
+                });
+                // Ligne verticale séparant Description et État
+                $img->line(($width - 200), $y, ($width - 200), $y + $rowHeight, function ($draw) {
+                    $draw->color('#000000');
+                    $draw->width(1);
+                });
+
+                // Description du service
+                $img->text($serviceCheck->service->title ?? 'N/A', $padding + 20, $y + $rowHeight / 2, function ($font) use ($fontPath) {
+                    if ($fontPath) $font->file($fontPath);
+                    $font->size(34);
+                    $font->color('#000000');
+                    $font->valign('middle');
+                });
+
+                // Statut
+                $statusLabel = match ($serviceCheck->statut) {
+                    'success' => 'OK',
+                    'error'   => 'NOK',
+                    'warning' => 'AVERTISSEMENT',
+                    default   => strtoupper($serviceCheck->statut ?? 'INCONNU'),
+                };
+
+                $statusColor = match ($serviceCheck->statut) {
+                    'success' => $okColor,
+                    'error'   => $nokColor,
+                    'warning' => $warningColor,
+                    default   => '#999999',
+                };
+
+                // Rectangle pour le statut
+                $statusX = $width - 200;
+                $statusWidth = 200;
+                $img->rectangle($statusX, $y, $statusX + $statusWidth, $y + $rowHeight, function ($draw) use ($statusColor) {
+                    $draw->background($statusColor);
+                });
+                $img->text($statusLabel, $statusX + $statusWidth / 2, $y + $rowHeight / 2, function ($font) use ($fontPath) {
+                    if ($fontPath) $font->file($fontPath);
+                    $font->size(32);
+                    $font->color('#FFFFFF');
+                    $font->align('center');
+                    $font->valign('middle');
+                });
+
+                $y += $rowHeight;
+                $rowIndex++;
+            }
+        }
+        $y += 20; // Espace entre sections
+    }
+
+    // === FOOTER ===
+    $footerY = $height - $footerHeight;
+    $img->rectangle(0, $footerY, $width, $height, function ($draw) use ($footerColor) {
+        $draw->background($footerColor);
+    });
+    
+    $footerText = $template->footer_text ?? 'EXPLOITATION, Connecte Châlons : https://glpi.connecte-chalons.fr';
+    $footerLines = explode("\n", $footerText);
+    $lineHeight = 35;
+    $startY = $footerY + 30;
+    
+    foreach ($footerLines as $index => $line) {
+        $img->text($line, $width / 2, $startY + ($index * $lineHeight), function ($font) use ($fontPath) {
+            if ($fontPath) $font->file($fontPath);
+            $font->size(28);
+            $font->color('#FFFFFF');
+            $font->align('center');
+            $font->valign('middle');
+        });
+    }
+
     // Output
     $pngContent = (string) $img->encode('png');
-    $filename = "check_{$client->label}_{$check->date_time->format('Y-m-d_H-i')}.png";
-
-    return response($pngContent)
-        ->header('Content-Type', 'image/png')
-        ->header('Content-Disposition', "attachment; filename=\"$filename\"");
-    } catch (\Throwable $e) {
-        return back()->with('error', 'Erreur génération PNG: ' . $e->getMessage());
+    
+    if ($forDownload) {
+        $filename = "check_{$client->label}_{$check->date_time->format('Y-m-d_H-i')}.png";
+        return response($pngContent)
+            ->header('Content-Type', 'image/png')
+            ->header('Content-Disposition', "attachment; filename=\"$filename\"");
     }
+    
+    return $pngContent;
 }
 
     /**
@@ -1051,8 +1199,14 @@ private function exportToPng($data)
                     'mime' => 'application/pdf',
                 ];
             case 'png':
-                // Build PNG bytes similar to exportToPng
-                $pngData = $this->generatePngBytesForCheck($check, $template);
+                // Build PNG bytes using the same function as exportToPng
+                $data = [
+                    'check' => $check,
+                    'client' => $client,
+                    'template' => $template,
+                    'serviceChecks' => $check->serviceChecks,
+                ];
+                $pngData = $this->generatePngImage($data, false);
                 $filename = "check_{$client->label}_{$check->date_time->format('Y-m-d_H-i')}.png";
                 return [
                     'data' => $pngData,
@@ -1123,84 +1277,6 @@ private function exportToPng($data)
         return ['bytes' => $excelOutput, 'filename' => $filename];
     }
 
-    private function generatePngBytesForCheck(Check $check, $template)
-    {
-        $client = $check->client;
-        $serviceChecks = $check->serviceChecks;
-        $width = 2000;
-        $height = 2500;
-        $padding = 50;
-        $fontPath = storage_path('fonts/DejaVuSans.ttf');
-        if (!file_exists($fontPath)) {
-            $fontPath = null;
-        }
-        $config = $template->config ?? [];
-        $headerColor = $template->header_color ?? '#FF0000';
-        $footerColor = $template->footer_color ?? '#C00000';
-        $okColor = $config['ok_color'] ?? '#00B050';
-        $nokColor = $config['nok_color'] ?? '#FF0000';
-        $warningColor = $config['warning_color'] ?? '#FFC000';
-
-        $manager = new ImageManager(['driver' => 'gd']);
-        $img = $manager->canvas($width, $height, '#FFFFFF');
-        $img->rectangle(0, 0, $width, 120, function ($draw) use ($headerColor) {
-            $draw->background($headerColor);
-        });
-        $logoPath = $template->header_logo ?? $client->logo;
-        if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
-            $logo = $manager->make(storage_path('app/public/' . $logoPath));
-            $logo->resize(120, null, function ($constraint) {
-                $constraint->aspectRatio();
-            });
-            $img->insert($logo, 'top-left', $padding, 15);
-        }
-        $img->text($template->header_title ?? 'Bulletin de Santé Connecte Châlons', $width / 2, 60, function ($font) use ($fontPath) {
-            if ($fontPath) $font->file($fontPath);
-            $font->size(60);
-            $font->color('#FFFFFF');
-            $font->align('center');
-            $font->valign('middle');
-        });
-        $img->text($check->date_time->locale('fr')->isoFormat('dddd DD/MM/YYYY'), $width - $padding, 60, function ($font) use ($fontPath) {
-            if ($fontPath) $font->file($fontPath);
-            $font->size(45);
-            $font->color('#FFFFFF');
-            $font->align('right');
-            $font->valign('middle');
-        });
-
-        $y = 150;
-        // For brevity, we can list basic info and counts
-        $img->text('Rapport de vérification', $padding, $y, function ($font) use ($fontPath) {
-            $font->file($fontPath);
-            $font->size(36);
-            $font->color('#000000');
-        });
-        $y += 60;
-        $total = $serviceChecks->count();
-        $ok = $serviceChecks->where('statut', 'success')->count();
-        $warn = $serviceChecks->where('statut', 'warning')->count();
-        $err = $serviceChecks->where('statut', 'error')->count();
-        $img->text("Services: OK {$ok} / ⚠ {$warn} / NOK {$err} / Total {$total}", $padding, $y, function ($font) use ($fontPath) {
-            $font->file($fontPath);
-            $font->size(28);
-            $font->color('#333333');
-        });
-
-        // Footer
-        $img->rectangle(0, $height - 120, $width, $height, function ($draw) use ($footerColor) {
-            $draw->background($footerColor);
-        });
-        $img->text($template->footer_text ?? 'EXPLOITATION, Connecte Châlons : https://glpi.connecte-chalons.fr', $width / 2, $height - 50, function ($font) use ($fontPath) {
-            $font->file($fontPath);
-            $font->size(32);
-            $font->color('#FFFFFF');
-            $font->align('center');
-            $font->valign('middle');
-        });
-
-        return (string) $img->encode('png');
-    }
 
     /**
      * Generate HTML email content based on template type

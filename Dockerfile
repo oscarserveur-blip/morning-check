@@ -16,9 +16,10 @@ RUN npm ci && npm run build
 # Étape 1 : base PHP avec Composer
 FROM php:8.2-cli
 
-# Installer les extensions nécessaires à Laravel + zip
+# Installer les extensions nécessaires à Laravel + zip + FreeType pour TTF
 RUN apt-get update && apt-get install -y \
-    zip unzip git curl libpng-dev libonig-dev libxml2-dev libzip-dev \
+    zip unzip git curl libpng-dev libonig-dev libxml2-dev libzip-dev libfreetype6-dev \
+    && docker-php-ext-configure gd --with-freetype \
     && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
 
 # Installer Composer
