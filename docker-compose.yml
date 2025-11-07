@@ -14,7 +14,7 @@ services:
     volumes:
       - ./.env.prod:/var/www/.env  # <- ton vrai .env
       - app_storage:/var/www/storage
-      - ./wait-for-mysql.sh:/var/www/wait-for-mysql.sh
+      - ./wait-for-mysql.php:/var/www/wait-for-mysql.php
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
@@ -46,8 +46,7 @@ services:
           php artisan key:generate --force
           touch storage/app/initialized
         fi &&
-        chmod +x /var/www/wait-for-mysql.sh &&
-        /var/www/wait-for-mysql.sh &&
+        php /var/www/wait-for-mysql.php &&
         php artisan migrate --force &&
         php artisan db:seed --force &&
         php artisan storage:link || true &&
