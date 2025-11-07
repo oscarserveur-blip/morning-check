@@ -79,8 +79,8 @@
                                         <td>
                                             @if($user->role === 'gestionnaire')
                                                 <div class="d-flex flex-wrap gap-1">
-                                                    @forelse($user->clients as $client)
-                                                        <span class="badge bg-secondary">{{ $client->label }}</span>
+                                                    @forelse($user->clients ?? [] as $client)
+                                                        <span class="badge bg-secondary">{{ $client->label ?? 'N/A' }}</span>
                                                     @empty
                                                         <span class="text-muted">Aucun client assigné</span>
                                                     @endforelse
@@ -91,7 +91,7 @@
                                         </td>
                                         <td>
                                             <small class="text-muted">
-                                                {{ $user->created_at->format('d/m/Y à H:i') }}
+                                                {{ $user->created_at ? $user->created_at->format('d/m/Y à H:i') : 'N/A' }}
                                             </small>
                                         </td>
                                         <td class="text-center">

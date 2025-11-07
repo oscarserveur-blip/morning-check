@@ -19,8 +19,14 @@ class UserController extends Controller
 
     public function index()
     {
-        $users = User::with('clients')->get();
-        return view('users.index', compact('users'));
+        try {
+            $users = User::with('clients')->get();
+            return view('users.index', compact('users'));
+        } catch (\Exception $e) {
+            \Log::error('Erreur dans UserController@index: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            abort(500, 'Erreur lors du chargement des utilisateurs: ' . $e->getMessage());
+        }
     }
 
     public function create()

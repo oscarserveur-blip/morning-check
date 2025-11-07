@@ -116,7 +116,9 @@
                 <div class="col-md-3 col-lg-2 px-0 sidebar">
                     <div class="d-flex flex-column p-3">
                         <a href="{{ route('dashboard') }}" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
-                            <img src="{{ asset('btbs-logo.png') }}" alt="Bouygues Telecom Business Solutions" class="me-2" style="height: 60px; width: auto; max-width: 200px;">
+                            @if(file_exists(public_path('btbs-logo.png')))
+                                <img src="{{ asset('btbs-logo.png') }}" alt="Bouygues Telecom Business Solutions" class="me-2" style="height: 60px; width: auto; max-width: 200px;" onerror="this.style.display='none';">
+                            @endif
                             <span class="fs-4 d-none d-md-inline">Check du Matin</span>
                         </a>
                         <hr>
