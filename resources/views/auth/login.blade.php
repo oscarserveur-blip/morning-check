@@ -15,7 +15,7 @@
                     <div>
                         <label for="email" class="block text-sm font-medium text-gray-700">Adresse email</label>
                         <input id="email" name="email" type="email" required 
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 @error('email') border-red-500 @enderror"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-600 focus:ring-blue-500 @error('email') border-red-500 @enderror"
                             value="{{ old('email') }}">
                         @error('email')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -25,7 +25,7 @@
                     <div>
                         <label for="password" class="block text-sm font-medium text-gray-700">Mot de passe</label>
                         <input id="password" name="password" type="password" required 
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 @error('password') border-red-500 @enderror">
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-600 focus:ring-blue-500 @error('password') border-red-500 @enderror">
                         @error('password')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
@@ -34,7 +34,8 @@
                     <div class="flex items-center justify-between">
                         <div class="flex items-center">
                             <input id="remember_me" name="remember" type="checkbox" 
-                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                style="accent-color: #003DA5;">
                             <label for="remember_me" class="ml-2 block text-sm text-gray-900">
                                 Se souvenir de moi
                             </label>
@@ -42,7 +43,7 @@
 
                         @if (Route::has('password.request'))
                             <div class="text-sm">
-                                <a href="{{ route('password.request') }}" class="font-medium text-indigo-600 hover:text-indigo-500">
+                                <a href="{{ route('password.request') }}" class="font-medium" style="color: #003DA5;" onmouseover="this.style.color='#002A73';" onmouseout="this.style.color='#003DA5';">
                                     Mot de passe oublié ?
                                 </a>
                             </div>
@@ -50,7 +51,7 @@
                     </div>
 
                     <div>
-                        <button type="submit" class="w-full flex justify-center py-2 px-4 border rounded-md shadow-sm text-sm font-medium text-black bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        <button type="submit" class="w-full flex justify-center py-2 px-4 border rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #003DA5; border-color: #003DA5;" onmouseover="this.style.backgroundColor='#002A73'; this.style.borderColor='#002A73';" onmouseout="this.style.backgroundColor='#003DA5'; this.style.borderColor='#003DA5';">
                             Se connecter
                         </button>
                     </div>

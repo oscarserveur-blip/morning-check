@@ -107,6 +107,12 @@
             .user-dropdown .dropdown-item i {
                 margin-right: 0.5rem;
             }
+            /* Amélioration de la qualité du logo */
+            img[src*="btbs-logo"] {
+                image-rendering: auto;
+                -ms-interpolation-mode: bicubic;
+                image-rendering: -webkit-optimize-contrast;
+            }
         </style>
     </head>
     <body>
@@ -117,7 +123,7 @@
                     <div class="d-flex flex-column p-3">
                         <a href="{{ route('dashboard') }}" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
                             @if(file_exists(public_path('btbs-logo.png')))
-                                <img src="{{ asset('btbs-logo.png') }}" alt="Bouygues Telecom Business Solutions" class="me-2" style="height: 60px; width: auto; max-width: 200px;" onerror="this.style.display='none';">
+                                <img src="{{ asset('btbs-logo.png') }}" alt="Bouygues Telecom Business Solutions" class="me-2" style="height: 60px; width: auto; max-width: 200px; image-rendering: auto; -ms-interpolation-mode: bicubic; image-rendering: -webkit-optimize-contrast;" onerror="this.style.display='none';">
                             @endif
                             <span class="fs-4 d-none d-md-inline">Check du Matin</span>
                         </a>
