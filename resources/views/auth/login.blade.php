@@ -35,7 +35,7 @@
                         <div class="flex items-center">
                             <input id="remember_me" name="remember" type="checkbox" 
                                 class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                style="accent-color: #003DA5;">
+                                style="accent-color: #0052CC;">
                             <label for="remember_me" class="ml-2 block text-sm text-gray-900">
                                 Se souvenir de moi
                             </label>
@@ -43,7 +43,7 @@
 
                         @if (Route::has('password.request'))
                             <div class="text-sm">
-                                <a href="{{ route('password.request') }}" class="font-medium" style="color: #003DA5;" onmouseover="this.style.color='#002A73';" onmouseout="this.style.color='#003DA5';">
+                                <a href="{{ route('password.request') }}" class="font-medium" style="color: #0052CC;" onmouseover="this.style.color='#003DA5';" onmouseout="this.style.color='#0052CC';">
                                     Mot de passe oublié ?
                                 </a>
                             </div>
@@ -51,7 +51,7 @@
                     </div>
 
                     <div>
-                        <button type="submit" class="w-full flex justify-center py-2 px-4 border rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #003DA5; border-color: #003DA5;" onmouseover="this.style.backgroundColor='#002A73'; this.style.borderColor='#002A73';" onmouseout="this.style.backgroundColor='#003DA5'; this.style.borderColor='#003DA5';">
+                        <button type="submit" class="w-full flex justify-center py-2 px-4 border rounded-md shadow-sm text-sm font-medium text-white" style="background-color: #0052CC; border-color: #0052CC;" onmouseover="this.style.backgroundColor='#003DA5'; this.style.borderColor='#003DA5';" onmouseout="this.style.backgroundColor='#0052CC'; this.style.borderColor='#0052CC';">
                             Se connecter
                         </button>
                     </div>

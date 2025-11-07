@@ -23,11 +23,11 @@
             }
             /* Couleurs Bouygues pour les inputs */
             input:focus {
-                border-color: #003DA5 !important;
-                ring-color: #003DA5 !important;
+                border-color: #0052CC !important;
+                ring-color: #0052CC !important;
             }
             input:focus-visible {
-                outline-color: #003DA5 !important;
+                outline-color: #0052CC !important;
             }
         </style>
     </head>

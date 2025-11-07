@@ -1,1 +1,1 @@
-<img src="{{ asset('btbs-logo.png') }}" alt="Bouygues Telecom Business Solutions" {{ $attributes }}>
+<img src="{{ asset('btbs-logo.png') }}" style="width: 50%" alt="Bouygues Telecom Business Solutions" {{ $attributes }}>
