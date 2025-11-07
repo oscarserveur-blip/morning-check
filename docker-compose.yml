@@ -9,7 +9,8 @@ services:
     ports:
       - "8001:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - ./.env.prod:/var/www/.env  # <- ton vrai .env
       - app_storage:/var/www/storage
@@ -19,7 +20,9 @@ services:
       APP_URL: https://checking.c2s.fr
       ASSET_URL: https://checking.c2s.fr
       SESSION_SECURE_COOKIE: "true"
+      DB_CONNECTION: mysql
       DB_HOST: db
+      DB_PORT: 3306
       DB_DATABASE: check_du_matin
       DB_USERNAME: laravel
       DB_PASSWORD: laravel
@@ -42,6 +45,11 @@ services:
           php artisan key:generate --force
           touch storage/app/initialized
         fi &&
+        echo 'Waiting for MySQL to be ready...' &&
+        until php -r "try { \$pdo = new PDO('mysql:host=db;port=3306;dbname=check_du_matin', 'laravel', 'laravel'); \$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); echo 'MySQL is ready!'; exit(0); } catch (Exception \$e) { exit(1); }" 2>/dev/null; do
+          echo 'MySQL is not ready yet. Waiting...'
+          sleep 2
+        done &&
         php artisan migrate --force &&
         php artisan db:seed --force &&
         php artisan storage:link || true &&
@@ -65,6 +73,11 @@ services:
       - "3307:3306"
     volumes:
       - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   db_data:
