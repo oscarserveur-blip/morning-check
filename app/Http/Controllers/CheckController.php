@@ -584,27 +584,31 @@ private function generatePngImage($data, $forDownload = false)
     $manager = new ImageManager(['driver' => 'gd']);
     $img = $manager->canvas($width, $height, '#FFFFFF');
 
+    // Helper function pour créer un rectangle rempli
+    $drawFilledRect = function($x, $y, $w, $h, $color) use ($manager, $img) {
+        $rect = $manager->canvas($w, $h, $color);
+        $img->insert($rect, 'top-left', $x, $y);
+    };
+
     $y = 0;
 
     // === HEADER ===
-    // Header avec fond blanc et bordure rouge
-    $img->rectangle(0, $y, $width, $y + $headerHeight, function ($draw) {
-        $draw->background('#FFFFFF');
-    });
-    // Bordure rouge autour du header
+    // Header avec fond blanc (déjà fait par le canvas)
+    // Bordure rouge autour du header en utilisant fill()
     $borderWidth = 3;
-    $img->rectangle(0, $y, $width, $y + $borderWidth, function ($draw) use ($headerColor) {
-        $draw->background($headerColor);
-    });
-    $img->rectangle(0, $y + $headerHeight - $borderWidth, $width, $y + $headerHeight, function ($draw) use ($headerColor) {
-        $draw->background($headerColor);
-    });
-    $img->rectangle(0, $y, $borderWidth, $y + $headerHeight, function ($draw) use ($headerColor) {
-        $draw->background($headerColor);
-    });
-    $img->rectangle($width - $borderWidth, $y, $width, $y + $headerHeight, function ($draw) use ($headerColor) {
-        $draw->background($headerColor);
-    });
+    // Remplir les bordures avec fill() - GD supporte fill() avec un point
+    // Bordure du haut
+    $borderTop = $manager->canvas($width, $borderWidth, $headerColor);
+    $img->insert($borderTop, 'top-left', 0, $y);
+    // Bordure du bas
+    $borderBottom = $manager->canvas($width, $borderWidth, $headerColor);
+    $img->insert($borderBottom, 'top-left', 0, $y + $headerHeight - $borderWidth);
+    // Bordure gauche
+    $borderLeft = $manager->canvas($borderWidth, $headerHeight, $headerColor);
+    $img->insert($borderLeft, 'top-left', 0, $y);
+    // Bordure droite
+    $borderRight = $manager->canvas($borderWidth, $headerHeight, $headerColor);
+    $img->insert($borderRight, 'top-left', $width - $borderWidth, $y);
 
     // Logo à gauche avec texte "CONNECTE CHALONS"
     $logoX = $padding + 20;
@@ -651,9 +655,7 @@ private function generatePngImage($data, $forDownload = false)
     $dateBoxX = $width - $padding - $dateBoxWidth - 20;
     $dateBoxY = $y + ($headerHeight - $dateBoxHeight) / 2;
     $dateBgColor = '#333333';
-    $img->rectangle($dateBoxX, $dateBoxY, $dateBoxX + $dateBoxWidth, $dateBoxY + $dateBoxHeight, function ($draw) use ($dateBgColor) {
-        $draw->background($dateBgColor);
-    });
+    $drawFilledRect($dateBoxX, $dateBoxY, $dateBoxWidth, $dateBoxHeight, $dateBgColor);
     $img->text(ucfirst($frenchDate), $dateBoxX + $dateBoxWidth / 2, $dateBoxY + $dateBoxHeight / 2, function ($font) use ($fontPath) {
         if ($fontPath) $font->file($fontPath);
         $font->size(32);
@@ -699,27 +701,17 @@ private function generatePngImage($data, $forDownload = false)
 
     foreach ($mainSections as $mainSectionTitle => $sectionServices) {
         // === TITRE DE SECTION PRINCIPALE (gris foncé) ===
-        $img->rectangle(0, $y, $width, $y + $sectionHeaderHeight, function ($draw) use ($sectionBgColor) {
-            $draw->background($sectionBgColor);
-        });
+        $drawFilledRect(0, $y, $width, $sectionHeaderHeight, $sectionBgColor);
         // Bordures (rectangles fins pour simuler des lignes épaisses)
         $borderWidth = 2;
         // Ligne du haut
-        $img->rectangle(0, $y, $width, $y + $borderWidth, function ($draw) {
-            $draw->background('#000000');
-        });
+        $drawFilledRect(0, $y, $width, $borderWidth, '#000000');
         // Ligne du bas
-        $img->rectangle(0, $y + $sectionHeaderHeight - $borderWidth, $width, $y + $sectionHeaderHeight, function ($draw) {
-            $draw->background('#000000');
-        });
+        $drawFilledRect(0, $y + $sectionHeaderHeight - $borderWidth, $width, $borderWidth, '#000000');
         // Ligne de gauche
-        $img->rectangle(0, $y, $borderWidth, $y + $sectionHeaderHeight, function ($draw) {
-            $draw->background('#000000');
-        });
+        $drawFilledRect(0, $y, $borderWidth, $sectionHeaderHeight, '#000000');
         // Ligne de droite
-        $img->rectangle($width - $borderWidth, $y, $width, $y + $sectionHeaderHeight, function ($draw) {
-            $draw->background('#000000');
-        });
+        $drawFilledRect($width - $borderWidth, $y, $borderWidth, $sectionHeaderHeight, '#000000');
         $img->text($mainSectionTitle, $padding, $y + $sectionHeaderHeight / 2, function ($font) use ($fontPath) {
             if ($fontPath) $font->file($fontPath);
             $font->size(44);
@@ -730,34 +722,18 @@ private function generatePngImage($data, $forDownload = false)
 
         // === EN-TÊTE DE COLONNES (gris foncé) ===
         $headerY = $y;
-        $img->rectangle(0, $headerY, $width, $headerY + $rowHeight, function ($draw) use ($headerBgColorDark) {
-            $draw->background($headerBgColorDark);
-        });
+        $drawFilledRect(0, $headerY, $width, $rowHeight, $headerBgColorDark);
         // Bordures
-        $img->rectangle(0, $headerY, $width, $headerY + $cellBorderWidth, function ($draw) {
-            $draw->background('#000000');
-        });
-        $img->rectangle(0, $headerY + $rowHeight - $cellBorderWidth, $width, $headerY + $rowHeight, function ($draw) {
-            $draw->background('#000000');
-        });
-        $img->rectangle(0, $headerY, $cellBorderWidth, $headerY + $rowHeight, function ($draw) {
-            $draw->background('#000000');
-        });
-        $img->rectangle($width - $cellBorderWidth, $headerY, $width, $headerY + $rowHeight, function ($draw) {
-            $draw->background('#000000');
-        });
+        $drawFilledRect(0, $headerY, $width, $cellBorderWidth, '#000000');
+        $drawFilledRect(0, $headerY + $rowHeight - $cellBorderWidth, $width, $cellBorderWidth, '#000000');
+        $drawFilledRect(0, $headerY, $cellBorderWidth, $rowHeight, '#000000');
+        $drawFilledRect($width - $cellBorderWidth, $headerY, $cellBorderWidth, $rowHeight, '#000000');
         
         if ($hasErrors) {
             // 4 colonnes : Description | Statut | Intervenant | Etat
-            $img->rectangle($separator1X, $headerY, $separator1X + $cellBorderWidth, $headerY + $rowHeight, function ($draw) {
-                $draw->background('#000000');
-            });
-            $img->rectangle($separator2X, $headerY, $separator2X + $cellBorderWidth, $headerY + $rowHeight, function ($draw) {
-                $draw->background('#000000');
-            });
-            $img->rectangle($separator3X, $headerY, $separator3X + $cellBorderWidth, $headerY + $rowHeight, function ($draw) {
-                $draw->background('#000000');
-            });
+            $drawFilledRect($separator1X, $headerY, $cellBorderWidth, $rowHeight, '#000000');
+            $drawFilledRect($separator2X, $headerY, $cellBorderWidth, $rowHeight, '#000000');
+            $drawFilledRect($separator3X, $headerY, $cellBorderWidth, $rowHeight, '#000000');
             
             $img->text('Description', $padding + $cellPadding, $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
                 if ($fontPath) $font->file($fontPath);
@@ -791,11 +767,9 @@ private function generatePngImage($data, $forDownload = false)
                 $font->valign('middle');
                 $font->bold(true);
             });
-        } else {
+            } else {
             // 2 colonnes : Description | Etat
-            $img->rectangle($separatorX, $headerY, $separatorX + $cellBorderWidth, $headerY + $rowHeight, function ($draw) {
-                $draw->background('#000000');
-            });
+            $drawFilledRect($separatorX, $headerY, $cellBorderWidth, $rowHeight, '#000000');
             
             $img->text('Description', $padding + $cellPadding, $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
                 if ($fontPath) $font->file($fontPath);
@@ -823,23 +797,13 @@ private function generatePngImage($data, $forDownload = false)
             $rowY = $y;
             
             // Ligne de service
-            $img->rectangle(0, $rowY, $width, $rowY + $rowHeight, function ($draw) use ($bgColor) {
-                $draw->background($bgColor);
-            });
+            $drawFilledRect(0, $rowY, $width, $rowHeight, $bgColor);
             // Bordures horizontales
-            $img->rectangle(0, $rowY, $width, $rowY + $cellBorderWidth, function ($draw) {
-                $draw->background('#000000');
-            });
-            $img->rectangle(0, $rowY + $rowHeight - $cellBorderWidth, $width, $rowY + $rowHeight, function ($draw) {
-                $draw->background('#000000');
-            });
+            $drawFilledRect(0, $rowY, $width, $cellBorderWidth, '#000000');
+            $drawFilledRect(0, $rowY + $rowHeight - $cellBorderWidth, $width, $cellBorderWidth, '#000000');
             // Bordures verticales
-            $img->rectangle(0, $rowY, $cellBorderWidth, $rowY + $rowHeight, function ($draw) {
-                $draw->background('#000000');
-            });
-            $img->rectangle($width - $cellBorderWidth, $rowY, $width, $rowY + $rowHeight, function ($draw) {
-                $draw->background('#000000');
-            });
+            $drawFilledRect(0, $rowY, $cellBorderWidth, $rowHeight, '#000000');
+            $drawFilledRect($width - $cellBorderWidth, $rowY, $cellBorderWidth, $rowHeight, '#000000');
             
             // Déterminer les labels et couleurs
             $statusLabel = match ($serviceCheck->statut) {
@@ -860,15 +824,9 @@ private function generatePngImage($data, $forDownload = false)
             if ($hasErrors) {
                 // 4 colonnes : Description | Statut | Intervenant | Etat
                 // Bordures verticales
-                $img->rectangle($separator1X, $rowY, $separator1X + $cellBorderWidth, $rowY + $rowHeight, function ($draw) {
-                    $draw->background('#000000');
-                });
-                $img->rectangle($separator2X, $rowY, $separator2X + $cellBorderWidth, $rowY + $rowHeight, function ($draw) {
-                    $draw->background('#000000');
-                });
-                $img->rectangle($separator3X, $rowY, $separator3X + $cellBorderWidth, $rowY + $rowHeight, function ($draw) {
-                    $draw->background('#000000');
-                });
+                $drawFilledRect($separator1X, $rowY, $cellBorderWidth, $rowHeight, '#000000');
+                $drawFilledRect($separator2X, $rowY, $cellBorderWidth, $rowHeight, '#000000');
+                $drawFilledRect($separator3X, $rowY, $cellBorderWidth, $rowHeight, '#000000');
                 
                 // Description (colonne 1) - titre du service + observations si KO
                 $serviceText = $serviceCheck->service->title ?? 'N/A';
@@ -923,9 +881,7 @@ private function generatePngImage($data, $forDownload = false)
                 $etatCellWidth = $colEtatWidth - $cellBorderWidth;
                 $etatCellY = $rowY + $cellBorderWidth;
                 $etatCellHeight = $rowHeight - ($cellBorderWidth * 2);
-                $img->rectangle($etatCellX, $etatCellY, $etatCellX + $etatCellWidth, $etatCellY + $etatCellHeight, function ($draw) use ($statusColor) {
-                    $draw->background($statusColor);
-                });
+                $drawFilledRect($etatCellX, $etatCellY, $etatCellWidth, $etatCellHeight, $statusColor);
                 $etatTextX = $separator3X + ($colEtatWidth / 2);
                 $img->text($statusLabel, $etatTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
                     if ($fontPath) $font->file($fontPath);
@@ -936,9 +892,7 @@ private function generatePngImage($data, $forDownload = false)
                 });
             } else {
                 // 2 colonnes : Description | Etat
-                $img->rectangle($separatorX, $rowY, $separatorX + $cellBorderWidth, $rowY + $rowHeight, function ($draw) {
-                    $draw->background('#000000');
-                });
+                $drawFilledRect($separatorX, $rowY, $cellBorderWidth, $rowHeight, '#000000');
                 
                 // Description (colonne 1)
                 $serviceText = $serviceCheck->service->title ?? 'N/A';
@@ -956,9 +910,7 @@ private function generatePngImage($data, $forDownload = false)
                 $etatCellWidth = $colEtatWidth - $cellBorderWidth;
                 $etatCellY = $rowY + $cellBorderWidth;
                 $etatCellHeight = $rowHeight - ($cellBorderWidth * 2);
-                $img->rectangle($etatCellX, $etatCellY, $etatCellX + $etatCellWidth, $etatCellY + $etatCellHeight, function ($draw) use ($statusColor) {
-                    $draw->background($statusColor);
-                });
+                $drawFilledRect($etatCellX, $etatCellY, $etatCellWidth, $etatCellHeight, $statusColor);
                 $etatTextX = $separatorX + ($colEtatWidth / 2);
                 $img->text($statusLabel, $etatTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
                     if ($fontPath) $font->file($fontPath);
@@ -977,9 +929,7 @@ private function generatePngImage($data, $forDownload = false)
 
     // === FOOTER ===
     $footerY = $height - $footerHeight;
-    $img->rectangle(0, $footerY, $width, $height, function ($draw) use ($footerColor) {
-        $draw->background($footerColor);
-    });
+    $drawFilledRect(0, $footerY, $width, $footerHeight, $footerColor);
     
     // Ligne principale en blanc
     $footerTextMain = $template->footer_text ?? 'EXPLOITATION, Connecte Châlons : https://glpi.connecte-chalons.fr';

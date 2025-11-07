@@ -8,8 +8,8 @@
         <title>{{ config('app.name', 'Laravel') }}</title>
         
         <!-- Favicon -->
-        <link rel="icon" type="image/png" href="{{ asset('logo.png') }}">
-        <link rel="shortcut icon" type="image/png" href="{{ asset('logo.png') }}">
+        <link rel="icon" type="image/png" href="{{ asset('btbs-logo.png') }}">
+        <link rel="shortcut icon" type="image/png" href="{{ asset('btbs-logo.png') }}">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
@@ -22,14 +22,14 @@
         <!-- Custom CSS -->
         <style>
             :root {
-                --brand-primary: #0ea5e9; /* cyan-500 */
-                --brand-primary-dark: #0284c7; /* cyan-600 */
-                --brand-accent: #22c55e; /* green-500 */
-                --bg-muted: #f2f5f9;
+                --brand-primary: #003DA5; /* Bleu Bouygues Telecom */
+                --brand-primary-dark: #002A73; /* Bleu Bouygues foncé */
+                --brand-accent: #E60012; /* Rouge Bouygues */
+                --bg-muted: #f5f5f5;
             }
             .sidebar {
                 min-height: 100vh;
-                background: #2c3e50;
+                background: #003DA5; /* Bleu Bouygues Telecom */
                 color: white;
             }
             .sidebar .nav-link {
@@ -43,7 +43,7 @@
                 background: rgba(255,255,255,.1);
             }
             .sidebar .nav-link.active {
-                background: #3498db;
+                background: #E60012; /* Rouge Bouygues */
                 color: white;
             }
             .sidebar .nav-link i {
@@ -57,8 +57,8 @@
                 overflow: hidden;
             }
             .card-header {
-                background: linear-gradient(180deg, rgba(14,165,233,0.12), rgba(14,165,233,0.06));
-                border-bottom: 1px solid rgba(14,165,233,.25);
+                background: linear-gradient(180deg, rgba(0,61,165,0.12), rgba(0,61,165,0.06));
+                border-bottom: 1px solid rgba(0,61,165,.25);
                 font-weight: 600;
                 color: #0f172a;
             }
@@ -74,7 +74,7 @@
             .btn-primary {
                 background-color: var(--brand-primary);
                 border-color: var(--brand-primary);
-                box-shadow: 0 6px 14px rgba(14,165,233,0.25);
+                box-shadow: 0 6px 14px rgba(0,61,165,0.25);
             }
             .btn-primary:hover,
             .btn-primary:focus {
@@ -87,8 +87,8 @@
                 color: #fff;
                 border-color: var(--brand-primary-dark);
             }
-            .table-striped>tbody>tr:nth-of-type(odd)>* { background-color: rgba(2,132,199,0.04); }
-            .table-hover tbody tr:hover { background-color: rgba(14,165,233,0.12); }
+            .table-striped>tbody>tr:nth-of-type(odd)>* { background-color: rgba(0,61,165,0.04); }
+            .table-hover tbody tr:hover { background-color: rgba(0,61,165,0.12); }
             .table td, .table th { vertical-align: middle; }
             /* Chips / badges accent */
             .badge.bg-success { background-color: var(--brand-accent) !important; }
@@ -116,8 +116,8 @@
                 <div class="col-md-3 col-lg-2 px-0 sidebar">
                     <div class="d-flex flex-column p-3">
                         <a href="{{ route('dashboard') }}" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
-                            <!-- <img src="{{ asset('logo.png') }}" alt="Check du Matin" class="me-2" style="height: 100px; width: auto;"> -->
-                            <span class="fs-4">Check du Matin</span>
+                            <img src="{{ asset('btbs-logo.png') }}" alt="Bouygues Telecom Business Solutions" class="me-2" style="height: 60px; width: auto; max-width: 200px;">
+                            <span class="fs-4 d-none d-md-inline">Check du Matin</span>
                         </a>
                         <hr>
                         <ul class="nav nav-pills flex-column mb-auto">
