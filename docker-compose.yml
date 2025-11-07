@@ -14,6 +14,7 @@ services:
     volumes:
       - ./.env.prod:/var/www/.env  # <- ton vrai .env
       - app_storage:/var/www/storage
+      - ./wait-for-mysql.sh:/var/www/wait-for-mysql.sh
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
@@ -45,11 +46,8 @@ services:
           php artisan key:generate --force
           touch storage/app/initialized
         fi &&
-        echo 'Waiting for MySQL to be ready...' &&
-        until php -r "try { \$pdo = new PDO('mysql:host=db;port=3306;dbname=check_du_matin', 'laravel', 'laravel'); \$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); echo 'MySQL is ready!'; exit(0); } catch (Exception \$e) { exit(1); }" 2>/dev/null; do
-          echo 'MySQL is not ready yet. Waiting...'
-          sleep 2
-        done &&
+        chmod +x /var/www/wait-for-mysql.sh &&
+        /var/www/wait-for-mysql.sh &&
         php artisan migrate --force &&
         php artisan db:seed --force &&
         php artisan storage:link || true &&
