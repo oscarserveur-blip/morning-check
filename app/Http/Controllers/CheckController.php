@@ -1551,8 +1551,8 @@ private function generatePngImage($data, $forDownload = false)
         .category { margin-bottom: 30px; }
         .category-title { background-color: ' . $headerColor . '; color: #ffffff; padding: 10px 15px; font-weight: bold; font-size: 16px; margin-bottom: 0; }
         table { width: 100%; border-collapse: collapse; margin-top: 0; }
-        table th { background-color: #f5f5f5; padding: 12px; text-align: left; border: 1px solid #ddd; font-weight: bold; }
-        table td { padding: 12px; border: 1px solid #ddd; }
+        table th { background-color: #f5f5f5; padding: 12px; text-align: left; border: 1px solid #ddd; font-weight: bold; vertical-align: top; }
+        table td { padding: 12px; border: 1px solid #ddd; word-wrap: break-word; vertical-align: top; }
         .status-ok { color: #00B050; font-weight: bold; }
         .status-nok { background-color: #FF0000; color: #ffffff; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
         .status-warning { background-color: #FFC000; color: #000000; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
@@ -1584,13 +1584,14 @@ private function generatePngImage($data, $forDownload = false)
                         <tr>
                             <th>Service</th>';
             
-            // Afficher la colonne "État" seulement s'il y a des statuts non-OK
-            if ($hasNonOkStatus) {
+            // Si tout est OK, afficher la colonne "État", sinon afficher "Observations"
+            if (!$hasNonOkStatus) {
                 $html .= '<th>État</th>';
+            } else {
+                $html .= '<th>Observations</th>';
             }
             
-            $html .= '<th>Observations</th>
-                        </tr>
+            $html .= '</tr>
                     </thead>
                     <tbody>';
             
@@ -1618,13 +1619,19 @@ private function generatePngImage($data, $forDownload = false)
                 $html .= '<tr>
                     <td>' . htmlspecialchars($sc->service->title ?? 'N/A') . '</td>';
                 
-                // Afficher la colonne "État" seulement s'il y a des statuts non-OK
-                if ($hasNonOkStatus) {
+                // Si tout est OK, afficher le statut "OK" en vert, sinon afficher les observations
+                if (!$hasNonOkStatus) {
                     $html .= '<td><span class="' . $statusClass . '">' . $statusLabel . '</span></td>';
+                } else {
+                    // Afficher les observations seulement pour les statuts non-OK
+                    if ($sc->statut !== 'success') {
+                        $html .= '<td>' . htmlspecialchars($observations) . '</td>';
+                    } else {
+                        $html .= '<td></td>';
+                    }
                 }
                 
-                $html .= '<td>' . htmlspecialchars($observations) . '</td>
-                </tr>';
+                $html .= '</tr>';
             }
             
             $html .= '</tbody></table></div>';
