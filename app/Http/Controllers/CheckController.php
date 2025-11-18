@@ -1550,11 +1550,13 @@ private function generatePngImage($data, $forDownload = false)
         .content { padding: 20px; }
         .category { margin-bottom: 30px; }
         .category-title { background-color: ' . $headerColor . '; color: #ffffff; padding: 10px 15px; font-weight: bold; font-size: 16px; margin-bottom: 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 0; border-spacing: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 0; border-spacing: 0; table-layout: fixed; }
         table th { background-color: #f5f5f5; padding: 12px; text-align: left; border: 1px solid #ddd; font-weight: bold; vertical-align: middle; }
         table td { padding: 12px; border: 1px solid #ddd; word-wrap: break-word; vertical-align: middle; text-align: left; }
-        table th:first-child, table td:first-child { width: 50%; }
-        table th:last-child, table td:last-child { width: 50%; }
+        /* Largeurs fixes en pourcentage pour toutes les colonnes */
+        table th:first-child, table td:first-child { width: 60%; }
+        table th:nth-child(2), table td:nth-child(2) { width: 40%; text-align: right; }
+        table th:last-child, table td:last-child { width: 40%; }
         .status-ok { color: #00B050; font-weight: bold; }
         .status-nok { background-color: #FF0000; color: #ffffff; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
         .status-warning { background-color: #FFC000; color: #000000; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
