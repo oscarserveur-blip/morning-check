@@ -66,6 +66,8 @@ class ServiceCheckController extends Controller
 
     public function getCheckServices($checkId)
     {
+        $check = \App\Models\Check::findOrFail($checkId);
+        
         $serviceChecks = ServiceCheck::with(['service.category', 'intervenant'])
             ->where('check_id', $checkId)
             ->get()
@@ -79,11 +81,22 @@ class ServiceCheckController extends Controller
         \Log::info('getCheckServices - Check ID: ' . $checkId);
         \Log::info('getCheckServices - Données récupérées:', $serviceChecks->toArray());
 
-        return response()->json($serviceChecks);
+        return response()->json([
+            'service_checks' => $serviceChecks,
+            'email_sent_at' => $check->email_sent_at ? $check->email_sent_at->toIso8601String() : null
+        ]);
     }
 
     public function updateStatus(Request $request, ServiceCheck $serviceCheck)
     {
+        // Vérifier si l'email a été envoyé
+        if ($serviceCheck->check->email_sent_at) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible de modifier les statuts : l\'email a déjà été envoyé.'
+            ], 403);
+        }
+
         $request->validate([
             'status' => 'required|in:pending,in_progress,success,warning,error'
         ]);
@@ -103,6 +116,14 @@ class ServiceCheckController extends Controller
 
     public function updateComment(Request $request, ServiceCheck $serviceCheck)
     {
+        // Vérifier si l'email a été envoyé
+        if ($serviceCheck->check->email_sent_at) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible de modifier les commentaires : l\'email a déjà été envoyé.'
+            ], 403);
+        }
+
         $request->validate([
             'comment' => 'nullable|string'
         ]);
@@ -122,6 +143,14 @@ class ServiceCheckController extends Controller
 
     public function updateIntervenant(Request $request, ServiceCheck $serviceCheck)
     {
+        // Vérifier si l'email a été envoyé
+        if ($serviceCheck->check->email_sent_at) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible de modifier les intervenants : l\'email a déjà été envoyé.'
+            ], 403);
+        }
+
         $request->validate([
             'intervenant_id' => 'nullable|exists:users,id'
         ]);
@@ -161,6 +190,14 @@ class ServiceCheckController extends Controller
      */
     public function updateAll(Request $request, Check $check)
     {
+        // Vérifier si l'email a été envoyé
+        if ($check->email_sent_at) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible de modifier les statuts : l\'email a déjà été envoyé.'
+            ], 403);
+        }
+
         \Log::info('=== DÉBUT updateAll ===');
         \Log::info('Check ID:', ['id' => $check->id]);
         \Log::info('Données reçues:', $request->all());

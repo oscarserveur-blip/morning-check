@@ -142,10 +142,12 @@
                                                     {{ in_array($check->statut, ['pending', 'in_progress']) ? 'disabled' : '' }}>
                                                 <i class="bi bi-send me-1"></i>Envoyer
                                             </button>
-                                            <!-- Bouton Supprimer -->
-                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteCheck({{ $check->id }})">
-                                                <i class="bi bi-trash me-1"></i>Supprimer
-                                            </button>
+                                            <!-- Bouton Supprimer (uniquement pour les admins) -->
+                                            @if(auth()->user()->isAdmin())
+                                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteCheck({{ $check->id }})">
+                                                    <i class="bi bi-trash me-1"></i>Supprimer
+                                                </button>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
@@ -389,7 +391,31 @@ function openCheckModal(checkId) {
         .then(data => {
             const container = document.getElementById('serviceCheckList');
             container.innerHTML = '';
-            Object.entries(data).forEach(([categoryTitle, serviceChecks]) => {
+            
+            // Vérifier si l'email a été envoyé
+            const emailSentAt = data.email_sent_at;
+            const serviceChecksData = data.service_checks || data;
+            const isEmailSent = !!emailSentAt;
+            
+            // Afficher un message d'information si l'email a été envoyé
+            if (isEmailSent) {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-warning mb-3';
+                alertDiv.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>L\'email a été envoyé. Les modifications des statuts sont désactivées.';
+                container.appendChild(alertDiv);
+                
+                // Désactiver les boutons de modification globale
+                document.getElementById('setAllOkBtn').disabled = true;
+                document.getElementById('setAllNokBtn').disabled = true;
+                document.getElementById('saveAllServicesBtn').disabled = true;
+            } else {
+                // Réactiver les boutons si l'email n'a pas été envoyé
+                document.getElementById('setAllOkBtn').disabled = false;
+                document.getElementById('setAllNokBtn').disabled = false;
+                document.getElementById('saveAllServicesBtn').disabled = false;
+            }
+            
+            Object.entries(serviceChecksData).forEach(([categoryTitle, serviceChecks]) => {
                 const categorySection = document.createElement('div');
                 categorySection.className = 'mb-4';
                 categorySection.innerHTML = `
@@ -420,23 +446,24 @@ function openCheckModal(checkId) {
                     if (status === 'error') status = 'failed';
                     const comment = serviceCheck.observations || '';
                     const intervenant = serviceCheck.intervenant || '';
+                    const disabledAttr = isEmailSent ? 'disabled' : '';
                     row.innerHTML = `
                         <td><strong>${serviceCheck.service.title}</strong></td>
                         <td>
-                            <select class="form-select form-select-sm status-select" onchange="handleStatusChange(${serviceCheck.id}, this.value, this)">
+                            <select class="form-select form-select-sm status-select" onchange="handleStatusChange(${serviceCheck.id}, this.value, this)" ${disabledAttr}>
                                 <option value="pending" ${status === 'pending' ? 'selected' : ''}>En attente</option>
                                 <option value="ok" ${status === 'ok' ? 'selected' : ''}>OK</option>
                                 <option value="failed" ${status === 'failed' ? 'selected' : ''}>NOK</option>
                             </select>
                         </td>
                         <td>
-                            <textarea class="form-control form-control-sm comment-input" placeholder="Commentaire obligatoire si NOK..." ${status !== 'failed' ? 'disabled' : ''}>${comment}</textarea>
+                            <textarea class="form-control form-control-sm comment-input" placeholder="Commentaire obligatoire si NOK..." ${isEmailSent || status !== 'failed' ? 'disabled' : ''}>${comment}</textarea>
                             <small class="text-muted comment-help" style="display: none;">
                                 <i class="bi bi-info-circle"></i> Commentaire obligatoire pour le statut NOK
                             </small>
                         </td>
                         <td>
-                            <select class="form-select form-select-sm intervenant-select" ${status !== 'failed' ? 'disabled' : ''}>
+                            <select class="form-select form-select-sm intervenant-select" ${isEmailSent || status !== 'failed' ? 'disabled' : ''}>
                                 <option value="">Sélectionner un intervenant</option>
                                 ${window.intervenantsOptionsHtml}
                             </select>
@@ -446,10 +473,10 @@ function openCheckModal(checkId) {
                         </td>
                         <td>
                             <div class="btn-group btn-group-sm">
-                                <button type="button" class="btn btn-outline-success btn-sm" onclick="validateServiceRow(${serviceCheck.id})" title="Valider cette ligne">
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="validateServiceRow(${serviceCheck.id})" title="Valider cette ligne" ${disabledAttr}>
                                     <i class="bi bi-check-lg"></i>
                                 </button>
-                                <button type="button" class="btn btn-outline-info btn-sm" onclick="resetServiceRow(${serviceCheck.id})" title="Réinitialiser">
+                                <button type="button" class="btn btn-outline-info btn-sm" onclick="resetServiceRow(${serviceCheck.id})" title="Réinitialiser" ${disabledAttr}>
                                     <i class="bi bi-arrow-clockwise"></i>
                                 </button>
                             </div>

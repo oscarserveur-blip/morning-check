@@ -96,13 +96,15 @@
                         <i class="bi bi-download"></i>
                     </span>
                 @endif
-                <form action="{{ route('checks.destroy', ['check' => $check, 'tab' => 'checks']) }}" method="POST" class="d-inline">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Êtes-vous sûr de vouloir supprimer ce check ?')" title="Supprimer">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </form>
+                @if(auth()->user()->isAdmin())
+                    <form action="{{ route('checks.destroy', ['check' => $check, 'tab' => 'checks']) }}" method="POST" class="d-inline">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Êtes-vous sûr de vouloir supprimer ce check ?')" title="Supprimer">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                @endif
             </div>
         </td>
     </tr>

@@ -250,13 +250,15 @@
                                                 <i class="bi bi-download"></i>
                                             </a>
                                         @endif
-                                        <form action="{{ route('checks.destroy', $check) }}" method="POST" class="inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-900" title="Supprimer" onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette vérification ?')">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </form>
+                                        @if(auth()->user()->isAdmin())
+                                            <form action="{{ route('checks.destroy', $check) }}" method="POST" class="inline">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:text-red-900" title="Supprimer" onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette vérification ?')">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>

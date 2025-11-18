@@ -13,12 +13,14 @@ class Check extends Model
         'client_id',
         'statut',
         'notes',
-        'created_by'
+        'created_by',
+        'email_sent_at'
     ];
 
     protected $casts = [
         'statut' => 'string',
-        'date_time' => 'datetime'
+        'date_time' => 'datetime',
+        'email_sent_at' => 'datetime'
     ];
 
     // Définir les valeurs de statut acceptées

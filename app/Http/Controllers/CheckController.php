@@ -1354,6 +1354,9 @@ private function generatePngImage($data, $forDownload = false)
             return back()->with('error', $errorMessage);
         }
 
+        // Enregistrer la date d'envoi de l'email
+        $check->update(['email_sent_at' => now()]);
+
         if (request()->ajax() || request()->wantsJson()) {
             return response()->json([
                 'success' => true,
@@ -1550,7 +1553,7 @@ private function generatePngImage($data, $forDownload = false)
         table { width: 100%; border-collapse: collapse; margin-top: 0; }
         table th { background-color: #f5f5f5; padding: 12px; text-align: left; border: 1px solid #ddd; font-weight: bold; }
         table td { padding: 12px; border: 1px solid #ddd; }
-        .status-ok { background-color: #00B050; color: #ffffff; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
+        .status-ok { color: #00B050; font-weight: bold; }
         .status-nok { background-color: #FF0000; color: #ffffff; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
         .status-warning { background-color: #FFC000; color: #000000; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
         .footer { background-color: ' . ($template->footer_color ?? '#C00000') . '; color: #ffffff; padding: 15px; text-align: center; font-size: 12px; }
@@ -1565,14 +1568,28 @@ private function generatePngImage($data, $forDownload = false)
         <div class="content">';
         
         foreach ($categories as $catTitle => $services) {
+            // Vérifier s'il y a des statuts non-OK dans cette catégorie
+            $hasNonOkStatus = false;
+            foreach ($services as $sc) {
+                if ($sc->service && $sc->statut !== 'success') {
+                    $hasNonOkStatus = true;
+                    break;
+                }
+            }
+            
             $html .= '<div class="category">
                 <div class="category-title">' . htmlspecialchars($catTitle) . '</div>
                 <table>
                     <thead>
                         <tr>
-                            <th>Service</th>
-                            <th>État</th>
-                            <th>Observations</th>
+                            <th>Service</th>';
+            
+            // Afficher la colonne "État" seulement s'il y a des statuts non-OK
+            if ($hasNonOkStatus) {
+                $html .= '<th>État</th>';
+            }
+            
+            $html .= '<th>Observations</th>
                         </tr>
                     </thead>
                     <tbody>';
@@ -1599,9 +1616,14 @@ private function generatePngImage($data, $forDownload = false)
                 $observations = $sc->observations ?? $sc->notes ?? '';
                 
                 $html .= '<tr>
-                    <td>' . htmlspecialchars($sc->service->title ?? 'N/A') . '</td>
-                    <td><span class="' . $statusClass . '">' . $statusLabel . '</span></td>
-                    <td>' . htmlspecialchars($observations) . '</td>
+                    <td>' . htmlspecialchars($sc->service->title ?? 'N/A') . '</td>';
+                
+                // Afficher la colonne "État" seulement s'il y a des statuts non-OK
+                if ($hasNonOkStatus) {
+                    $html .= '<td><span class="' . $statusClass . '">' . $statusLabel . '</span></td>';
+                }
+                
+                $html .= '<td>' . htmlspecialchars($observations) . '</td>
                 </tr>';
             }
             

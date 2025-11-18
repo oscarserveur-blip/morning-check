@@ -93,11 +93,11 @@
                                 <i class="bi bi-envelope me-2"></i>Mailings
                             </button>
                         </li>
-                        <li class="nav-item" role="presentation">
+                        {{-- <li class="nav-item" role="presentation">
                             <button class="nav-link {{ request('tab') === 'destinataires' ? 'active' : '' }}" id="destinataires-tab" data-bs-toggle="tab" data-bs-target="#destinataires" type="button" role="tab">
                                 <i class="bi bi-people me-2"></i>Destinataires Rappels
                             </button>
-                        </li>
+                        </li> --}}
                         <li class="nav-item" role="presentation">
                             <button class="nav-link {{ request('tab') === 'checks' ? 'active' : '' }}" id="checks-tab" data-bs-toggle="tab" data-bs-target="#checks" type="button" role="tab">
                                 <i class="bi bi-check-square me-2"></i>Checks
@@ -112,9 +112,9 @@
                         <div class="tab-pane fade {{ request('tab') === 'mailings' ? 'show active' : '' }}" id="mailings" role="tabpanel">
                             @include('clients.partials.tabs.mailings')
                         </div>
-                        <div class="tab-pane fade {{ request('tab') === 'destinataires' ? 'show active' : '' }}" id="destinataires" role="tabpanel">
+                        {{-- <div class="tab-pane fade {{ request('tab') === 'destinataires' ? 'show active' : '' }}" id="destinataires" role="tabpanel">
                             @include('clients.partials.tabs.destinataires')
-                        </div>
+                        </div> --}}
                         <div class="tab-pane fade {{ request('tab') === 'checks' ? 'show active' : '' }}" id="checks" role="tabpanel">
                             @include('clients.partials.tabs.checks')
                         </div>
@@ -585,8 +585,29 @@ function viewCheck(checkId) {
             const container = document.getElementById('serviceCheckList');
             container.innerHTML = '';
             
+            // Vérifier si l'email a été envoyé
+            const emailSentAt = data.email_sent_at;
+            const serviceChecksData = data.service_checks || data;
+            const isEmailSent = !!emailSentAt;
+            
+            // Afficher un message d'information si l'email a été envoyé
+            if (isEmailSent) {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-warning mb-3';
+                alertDiv.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>L\'email a été envoyé. Les modifications des statuts sont désactivées.';
+                container.appendChild(alertDiv);
+                
+                // Désactiver les boutons de modification globale
+                const setAllOkBtn = document.getElementById('setAllOkBtn');
+                const setAllNokBtn = document.getElementById('setAllNokBtn');
+                const saveAllServicesBtn = document.getElementById('saveAllServicesBtn');
+                if (setAllOkBtn) setAllOkBtn.disabled = true;
+                if (setAllNokBtn) setAllNokBtn.disabled = true;
+                if (saveAllServicesBtn) saveAllServicesBtn.disabled = true;
+            }
+            
             // Parcourir les catégories
-            Object.entries(data).forEach(([categoryTitle, serviceChecks]) => {
+            Object.entries(serviceChecksData).forEach(([categoryTitle, serviceChecks]) => {
                 // Créer la section de la catégorie
                 const categorySection = document.createElement('div');
                 categorySection.className = 'mb-4';
@@ -622,13 +643,14 @@ function viewCheck(checkId) {
                     if (status === 'error') status = 'failed';
                     const comment = serviceCheck.observations || '';
                     const intervenant = serviceCheck.intervenant || '';
+                    const disabledAttr = isEmailSent ? 'disabled' : '';
                     row.innerHTML = `
                         <td>
                             <strong>${serviceCheck.service.title}</strong>
                         </td>
                         <td>
                             <select class="form-select form-select-sm status-select" 
-                                    onchange="handleStatusChange(${serviceCheck.id}, this.value, this)">
+                                    onchange="handleStatusChange(${serviceCheck.id}, this.value, this)" ${disabledAttr}>
                                 <option value="pending" ${status === 'pending' ? 'selected' : ''}>
                                     En attente
                                 </option>
@@ -643,14 +665,14 @@ function viewCheck(checkId) {
                         <td>
                             <textarea class="form-control form-control-sm comment-input" 
                                     placeholder="Commentaire obligatoire si NOK..."
-                                    ${status !== 'failed' ? 'disabled' : ''}>${comment}</textarea>
+                                    ${isEmailSent || status !== 'failed' ? 'disabled' : ''}>${comment}</textarea>
                             <small class="text-muted comment-help" style="display: none;">
                                 <i class="bi bi-info-circle"></i> Commentaire obligatoire pour le statut NOK
                             </small>
                         </td>
                         <td>
                             <select class="form-select form-select-sm intervenant-select" 
-                                    ${status !== 'failed' ? 'disabled' : ''}>
+                                    ${isEmailSent || status !== 'failed' ? 'disabled' : ''}>
                                 <option value="">Sélectionner un intervenant</option>
                                 @foreach($users as $user)
                                     <option value="{{ $user->id }}" 
@@ -666,11 +688,11 @@ function viewCheck(checkId) {
                         <td>
                             <div class="btn-group btn-group-sm">
                                 <button type="button" class="btn btn-outline-success btn-sm" 
-                                        onclick="validateServiceRow(${serviceCheck.id})" title="Valider cette ligne">
+                                        onclick="validateServiceRow(${serviceCheck.id})" title="Valider cette ligne" ${disabledAttr}>
                                     <i class="bi bi-check-lg"></i>
                                 </button>
                                 <button type="button" class="btn btn-outline-info btn-sm" 
-                                        onclick="resetServiceRow(${serviceCheck.id})" title="Réinitialiser">
+                                        onclick="resetServiceRow(${serviceCheck.id})" title="Réinitialiser" ${disabledAttr}>
                                     <i class="bi bi-arrow-clockwise"></i>
                                 </button>
                             </div>
