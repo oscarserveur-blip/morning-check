@@ -1569,11 +1569,16 @@ private function generatePngImage($data, $forDownload = false)
         
         foreach ($categories as $catTitle => $services) {
             // Vérifier s'il y a des statuts non-OK dans cette catégorie
+            // Un service est considéré comme OK seulement si son statut est exactement 'success'
             $hasNonOkStatus = false;
             foreach ($services as $sc) {
-                if ($sc->service && $sc->statut !== 'success') {
-                    $hasNonOkStatus = true;
-                    break;
+                if ($sc->service) {
+                    $statut = $sc->statut ?? null;
+                    // Si le statut n'est pas 'success', alors il y a un problème
+                    if ($statut !== 'success') {
+                        $hasNonOkStatus = true;
+                        break;
+                    }
                 }
             }
             
