@@ -164,6 +164,14 @@
                         </form>
                     </div>
 
+                    <style>
+                        .table tbody tr[onclick] {
+                            cursor: pointer;
+                        }
+                        .table tbody tr[onclick]:hover {
+                            background-color: rgba(74,144,226,0.08) !important;
+                        }
+                    </style>
                     <div class="table-responsive">
                         <table class="table table-hover align-middle">
                             <thead class="table-light">
@@ -178,7 +186,7 @@
                             </thead>
                             <tbody>
                                 @forelse($clients as $client)
-                                    <tr>
+                                    <tr style="cursor: pointer;" onclick="window.location.href='{{ route('clients.show', $client) }}'">
                                         <td>
                                             <div class="d-flex align-items-center">
                                                 <div class="ms-3">
@@ -211,22 +219,24 @@
                                         <td>
                                             <small class="text-muted">{{ $client->created_at->format('d/m/Y') }}</small>
                                         </td>
-                                        <td class="text-end">
+                                        <td class="text-end" onclick="event.stopPropagation();">
                                             <div class="btn-group">
                                                 <a href="{{ route('clients.show', $client) }}" 
-                                                   class="btn btn-sm btn-outline-info">
+                                                   class="btn btn-sm btn-outline-info"
+                                                   onclick="event.stopPropagation();">
                                                     <i class="bi bi-eye"></i>
                                                 </a>
-                                                <a href="#" class="btn btn-sm btn-outline-primary" onclick="openEditClientModal({{ $client->id }})">
+                                                <a href="#" class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); openEditClientModal({{ $client->id }});">
                                                     <i class="bi bi-pencil"></i>
                                                 </a>
-                                                <a href="{{ route('clients.duplicate', $client) }}" class="btn btn-sm btn-outline-secondary" title="Dupliquer">
+                                                <a href="{{ route('clients.duplicate', $client) }}" class="btn btn-sm btn-outline-secondary" title="Dupliquer" onclick="event.stopPropagation();">
                                                     <i class="bi bi-files"></i>
                                                 </a>
                                                 <form action="{{ route('clients.destroy', $client) }}" 
                                                       method="POST" 
                                                       class="d-inline"
-                                                      onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce client ?')">
+                                                      onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce client ?')"
+                                                      onclick="event.stopPropagation();">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="btn btn-sm btn-outline-danger">

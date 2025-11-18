@@ -22,14 +22,14 @@
         <!-- Custom CSS -->
         <style>
             :root {
-                --brand-primary: #003DA5; /* Bleu Bouygues Telecom */
-                --brand-primary-dark: #002A73; /* Bleu Bouygues foncé */
-                --brand-accent: #E60012; /* Rouge Bouygues */
+                --brand-primary: #4A90E2; /* Bleu Bouygues doux */
+                --brand-primary-dark: #357ABD; /* Bleu Bouygues foncé doux */
+                --brand-accent: #FF6B35; /* Orange/Rouge doux */
                 --bg-muted: #f5f5f5;
             }
             .sidebar {
                 min-height: 100vh;
-                background: #003DA5; /* Bleu Bouygues Telecom */
+                background: #4A90E2; /* Bleu Bouygues doux */
                 color: white;
             }
             .sidebar .nav-link {
@@ -43,7 +43,7 @@
                 background: rgba(255,255,255,.1);
             }
             .sidebar .nav-link.active {
-                background: #E60012; /* Rouge Bouygues */
+                background: #FF6B35; /* Orange/Rouge doux */
                 color: white;
             }
             .sidebar .nav-link i {
@@ -57,8 +57,8 @@
                 overflow: hidden;
             }
             .card-header {
-                background: linear-gradient(180deg, rgba(0,61,165,0.12), rgba(0,61,165,0.06));
-                border-bottom: 1px solid rgba(0,61,165,.25);
+                background: linear-gradient(180deg, rgba(74,144,226,0.12), rgba(74,144,226,0.06));
+                border-bottom: 1px solid rgba(74,144,226,.25);
                 font-weight: 600;
                 color: #0f172a;
             }
@@ -74,7 +74,7 @@
             .btn-primary {
                 background-color: var(--brand-primary);
                 border-color: var(--brand-primary);
-                box-shadow: 0 6px 14px rgba(0,61,165,0.25);
+                box-shadow: 0 6px 14px rgba(74,144,226,0.25);
             }
             .btn-primary:hover,
             .btn-primary:focus {
@@ -87,8 +87,8 @@
                 color: #fff;
                 border-color: var(--brand-primary-dark);
             }
-            .table-striped>tbody>tr:nth-of-type(odd)>* { background-color: rgba(0,61,165,0.04); }
-            .table-hover tbody tr:hover { background-color: rgba(0,61,165,0.12); }
+            .table-striped>tbody>tr:nth-of-type(odd)>* { background-color: rgba(74,144,226,0.04); }
+            .table-hover tbody tr:hover { background-color: rgba(74,144,226,0.12); }
             .table td, .table th { vertical-align: middle; }
             /* Chips / badges accent */
             .badge.bg-success { background-color: var(--brand-accent) !important; }
@@ -125,7 +125,7 @@
                             @if(file_exists(public_path('btbs-logo.png')))
                                 <img src="{{ asset('btbs-logo.png') }}" alt="Bouygues Telecom Business Solutions" class="me-2" style="height: 60px; width: auto; max-width: 200px; image-rendering: auto; -ms-interpolation-mode: bicubic; image-rendering: -webkit-optimize-contrast;" onerror="this.style.display='none';">
                             @endif
-                            <span class="fs-4 d-none d-md-inline">Check du Matin</span>
+                            <!-- <span class="fs-4 d-none d-md-inline">Check du Matin</span> -->
                         </a>
                         <hr>
                         <ul class="nav nav-pills flex-column mb-auto">

@@ -645,7 +645,6 @@ private function generatePngImage($data, $forDownload = false)
         $font->color('#FF0000');
         $font->align('center');
         $font->valign('middle');
-        $font->bold(true);
     });
 
     // Date à droite dans une boîte grise foncée
@@ -741,7 +740,6 @@ private function generatePngImage($data, $forDownload = false)
                 $font->color('#FFFFFF');
                 $font->align('left');
                 $font->valign('middle');
-                $font->bold(true);
             });
             $img->text('Statut', $separator1X + ($colStatutWidth / 2), $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
                 if ($fontPath) $font->file($fontPath);
@@ -749,7 +747,6 @@ private function generatePngImage($data, $forDownload = false)
                 $font->color('#FFFFFF');
                 $font->align('center');
                 $font->valign('middle');
-                $font->bold(true);
             });
             $img->text('Intervenant', $separator2X + ($colIntervenantWidth / 2), $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
                 if ($fontPath) $font->file($fontPath);
@@ -757,7 +754,6 @@ private function generatePngImage($data, $forDownload = false)
                 $font->color('#FFFFFF');
                 $font->align('center');
                 $font->valign('middle');
-                $font->bold(true);
             });
             $img->text('Etat', $separator3X + ($colEtatWidth / 2), $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
                 if ($fontPath) $font->file($fontPath);
@@ -765,7 +761,6 @@ private function generatePngImage($data, $forDownload = false)
                 $font->color('#FFFFFF');
                 $font->align('center');
                 $font->valign('middle');
-                $font->bold(true);
             });
             } else {
             // 2 colonnes : Description | Etat
@@ -777,7 +772,6 @@ private function generatePngImage($data, $forDownload = false)
                 $font->color('#FFFFFF');
                 $font->align('left');
                 $font->valign('middle');
-                $font->bold(true);
             });
             $img->text('Etat', $separatorX + ($colEtatWidth / 2), $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
                 if ($fontPath) $font->file($fontPath);
@@ -785,7 +779,6 @@ private function generatePngImage($data, $forDownload = false)
                 $font->color('#FFFFFF');
                 $font->align('center');
                 $font->valign('middle');
-                $font->bold(true);
             });
         }
         $y += $rowHeight;
@@ -1258,6 +1251,22 @@ private function generatePngImage($data, $forDownload = false)
      */
     public function send(Check $check)
     {
+        // Vérifier si on est en environnement local
+        // Le SMTP ne fonctionne que sur le serveur de production
+        $isLocal = app()->environment('local') || 
+                   config('app.debug') === true ||
+                   config('app.env') === 'local';
+        
+        if ($isLocal) {
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json([
+                    'success' => false, 
+                    'message' => "L'envoi d'email n'est pas disponible en environnement local. L'email sera envoyé uniquement sur le serveur de production."
+                ], 422);
+            }
+            return back()->with('error', "L'envoi d'email n'est pas disponible en environnement local. L'email sera envoyé uniquement sur le serveur de production.");
+        }
+
         // Collect recipients from client's mailings
         $client = $check->client()->with('mailings')->first();
         if (!$client) {
@@ -1325,10 +1334,24 @@ private function generatePngImage($data, $forDownload = false)
                 }
             });
         } catch (\Throwable $e) {
-            if (request()->ajax() || request()->wantsJson()) {
-                return response()->json(['success' => false, 'message' => "Échec de l'envoi de l'email: " . $e->getMessage()], 500);
+            \Log::error('Erreur envoi email: ' . $e->getMessage(), [
+                'check_id' => $check->id,
+                'client_id' => $client->id ?? null,
+                'exception' => $e,
+            ]);
+            
+            $errorMessage = "Échec de l'envoi de l'email";
+            // Message plus explicite pour les erreurs SSL/STMP
+            if (str_contains($e->getMessage(), 'SSL') || str_contains($e->getMessage(), 'STARTTLS') || str_contains($e->getMessage(), 'certificate')) {
+                $errorMessage .= ": Erreur de connexion SMTP. Vérifiez que vous êtes sur le serveur de production et que la configuration SMTP est correcte.";
+            } else {
+                $errorMessage .= ": " . $e->getMessage();
             }
-            return back()->with('error', "Échec de l'envoi de l'email: " . $e->getMessage());
+            
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $errorMessage], 500);
+            }
+            return back()->with('error', $errorMessage);
         }
 
         if (request()->ajax() || request()->wantsJson()) {
