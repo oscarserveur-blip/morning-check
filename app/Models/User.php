@@ -20,7 +20,7 @@ class User extends Authenticatable
      * @var list<string>
      */
      protected $fillable = [
-        'name', 'password', 'role', 'email', 'email_verified_at', 'client_id'
+        'name', 'password', 'role', 'email', 'email_verified_at', 'client_id', 'must_change_password'
     ];
 
     /**
@@ -43,6 +43,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'must_change_password' => 'boolean',
         ];
     }
 

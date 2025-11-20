@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Client;
+use App\Mail\UserPasswordMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
@@ -40,24 +43,35 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6|confirmed',
             'role' => 'required|in:admin,gestionnaire',
             'clients' => 'array',
             'clients.*' => 'exists:clients,id',
         ]);
 
+        // Générer un mot de passe aléatoire sécurisé
+        $password = Str::random(16);
+        
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
+            'password' => Hash::make($password),
             'role' => $validated['role'],
+            'must_change_password' => true, // Forcer le changement à la première connexion
         ]);
 
         if ($user->role === 'gestionnaire' && !empty($validated['clients'])) {
             $user->clients()->sync($validated['clients']);
         }
 
-        return redirect()->route('users.index')->with('success', 'Utilisateur créé avec succès.');
+        // Envoyer le mot de passe par email
+        try {
+            Mail::to($user->email)->send(new UserPasswordMail($user, $password));
+        } catch (\Exception $e) {
+            \Log::error('Erreur envoi email mot de passe: ' . $e->getMessage());
+            // Ne pas bloquer la création si l'email échoue
+        }
+
+        return redirect()->route('users.index')->with('success', 'Utilisateur créé avec succès. Le mot de passe a été envoyé par email.');
     }
 
     public function edit(User $user)

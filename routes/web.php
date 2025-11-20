@@ -19,9 +19,9 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified', 'force.password.change'])->name('dashboard');
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'force.password.change'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -83,7 +83,7 @@ Route::middleware('auth')->group(function () {
     });
 });
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'force.password.change'])->group(function () {
     Route::get('/test', [App\Http\Controllers\TestController::class, 'test'])->name('test');
     Route::get('/test-user', [App\Http\Controllers\TestController::class, 'testUser'])->name('test.user');
     Route::resource('users', App\Http\Controllers\UserController::class);

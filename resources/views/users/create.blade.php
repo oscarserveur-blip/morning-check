@@ -62,39 +62,10 @@
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="password" class="form-label">
-                                        <i class="bi bi-lock me-1"></i>Mot de passe <span class="text-danger">*</span>
-                                    </label>
-                                    <div class="input-group">
-                                        <input type="password" class="form-control @error('password') is-invalid @enderror" 
-                                               id="password" name="password" required
-                                               placeholder="Minimum 6 caractères">
-                                        <button class="btn btn-outline-secondary" type="button" id="togglePassword">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
-                                    </div>
-                                    @error('password')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="password_confirmation" class="form-label">
-                                        <i class="bi bi-lock-fill me-1"></i>Confirmer le mot de passe <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="password" class="form-control @error('password_confirmation') is-invalid @enderror" 
-                                           id="password_confirmation" name="password_confirmation" required
-                                           placeholder="Retapez le mot de passe">
-                                    @error('password_confirmation')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
+                        <div class="alert alert-info mb-4">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Information :</strong> Un mot de passe temporaire sera généré automatiquement et envoyé par email à l'utilisateur. 
+                            Il devra le changer lors de sa première connexion.
                         </div>
 
                         <div class="mb-4">
@@ -218,17 +189,6 @@ function toggleClientsSelect() {
 
 document.addEventListener('DOMContentLoaded', function() {
     toggleClientsSelect();
-    
-    // Toggle password visibility
-    document.getElementById('togglePassword').addEventListener('click', function() {
-        const password = document.getElementById('password');
-        const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-        password.setAttribute('type', type);
-        
-        const icon = this.querySelector('i');
-        icon.classList.toggle('bi-eye');
-        icon.classList.toggle('bi-eye-slash');
-    });
 });
 </script>
 @endsection 

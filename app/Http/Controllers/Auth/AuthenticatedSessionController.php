@@ -28,6 +28,11 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        // Vérifier si l'utilisateur doit changer son mot de passe
+        if (auth()->user()->must_change_password) {
+            return redirect()->route('password.force-change');
+        }
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 
