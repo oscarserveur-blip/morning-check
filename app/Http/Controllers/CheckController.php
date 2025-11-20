@@ -1613,6 +1613,8 @@ private function generatePngImage($data, $forDownload = false)
                     'success' => 'status-ok',
                     'error' => 'status-nok',
                     'warning' => 'status-warning',
+                    'pending' => 'status-warning',
+                    'in_progress' => 'status-warning',
                     default => ''
                 };
                 
@@ -1620,6 +1622,8 @@ private function generatePngImage($data, $forDownload = false)
                     'success' => 'OK',
                     'error' => 'NOK',
                     'warning' => 'AVERTISSEMENT',
+                    'pending' => 'EN ATTENTE',
+                    'in_progress' => 'EN COURS',
                     default => strtoupper($sc->statut ?? 'INCONNU')
                 };
                 
@@ -1628,15 +1632,17 @@ private function generatePngImage($data, $forDownload = false)
                 $html .= '<tr>
                     <td>' . htmlspecialchars($sc->service->title ?? 'N/A') . '</td>';
                 
-                // Si tout est OK, afficher le statut "OK" en vert, sinon afficher les observations
+                // Si tout est OK, afficher le statut "OK" en vert, sinon afficher le statut + observations
                 if (!$hasNonOkStatus) {
                     $html .= '<td><span class="' . $statusClass . '">' . $statusLabel . '</span></td>';
                 } else {
-                    // Afficher les observations seulement pour les statuts non-OK
+                    // Afficher le statut et les observations pour les statuts non-OK
                     if ($sc->statut !== 'success') {
-                        $html .= '<td>' . htmlspecialchars($observations) . '</td>';
+                        $statusDisplay = '<span class="' . $statusClass . '">' . $statusLabel . '</span>';
+                        $observationsDisplay = !empty($observations) ? '<br><span style="font-size: 12px; color: #666;">' . htmlspecialchars($observations) . '</span>' : '';
+                        $html .= '<td style="text-align: right;">' . $statusDisplay . $observationsDisplay . '</td>';
                     } else {
-                        $html .= '<td></td>';
+                        $html .= '<td><span class="status-ok">OK</span></td>';
                     }
                 }
                 
