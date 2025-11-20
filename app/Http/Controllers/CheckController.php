@@ -666,27 +666,12 @@ private function generatePngImage($data, $forDownload = false)
     $y += $headerHeight + 20;
 
     // === CONTENU PRINCIPAL ===
-    // Détecter s'il y a des KO dans les données pour décider du nombre de colonnes
-    $hasErrors = $serviceChecks->contains(function ($sc) {
-        return $sc->statut === 'error';
-    });
-    
-    // Si des KO existent, utiliser 4 colonnes, sinon 2 colonnes
-    if ($hasErrors) {
-        // 4 colonnes : Description | Statut | Intervenant | Etat
-        $colDescriptionWidth = intval($width * 0.50);  // 50% pour Description
-        $colStatutWidth = intval($width * 0.15);      // 15% pour Statut
-        $colIntervenantWidth = intval($width * 0.20);  // 20% pour Intervenant
-        $colEtatWidth = $width - $colDescriptionWidth - $colStatutWidth - $colIntervenantWidth; // 15% pour Etat
-        $separator1X = $colDescriptionWidth;
-        $separator2X = $colDescriptionWidth + $colStatutWidth;
-        $separator3X = $colDescriptionWidth + $colStatutWidth + $colIntervenantWidth;
-    } else {
-        // 2 colonnes : Description | Etat
-        $colDescriptionWidth = intval($width * 0.75);  // 75% pour Description
-        $colEtatWidth = $width - $colDescriptionWidth; // 25% pour État
-        $separatorX = $colDescriptionWidth;  // Ligne entre Description et État
-    }
+    // Toujours utiliser 3 colonnes : Description | État | Observations
+    $colDescriptionWidth = intval($width * 0.60);  // 60% pour Description
+    $colEtatWidth = intval($width * 0.20);        // 20% pour État
+    $colObservationsWidth = $width - $colDescriptionWidth - $colEtatWidth; // 20% pour Observations
+    $separator1X = $colDescriptionWidth;
+    $separator2X = $colDescriptionWidth + $colEtatWidth;
     
     $cellPadding = 20;  // Padding uniforme pour toutes les cellules
     $borderWidth = 2;   // Épaisseur bordures principales (extérieures)
@@ -728,59 +713,31 @@ private function generatePngImage($data, $forDownload = false)
         $drawFilledRect(0, $headerY, $cellBorderWidth, $rowHeight, '#000000');
         $drawFilledRect($width - $cellBorderWidth, $headerY, $cellBorderWidth, $rowHeight, '#000000');
         
-        if ($hasErrors) {
-            // 4 colonnes : Description | Statut | Intervenant | Etat
-            $drawFilledRect($separator1X, $headerY, $cellBorderWidth, $rowHeight, '#000000');
-            $drawFilledRect($separator2X, $headerY, $cellBorderWidth, $rowHeight, '#000000');
-            $drawFilledRect($separator3X, $headerY, $cellBorderWidth, $rowHeight, '#000000');
-            
-            $img->text('Description', $padding + $cellPadding, $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
-                if ($fontPath) $font->file($fontPath);
-                $font->size(34);
-                $font->color('#FFFFFF');
-                $font->align('left');
-                $font->valign('middle');
-            });
-            $img->text('Statut', $separator1X + ($colStatutWidth / 2), $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
-                if ($fontPath) $font->file($fontPath);
-                $font->size(34);
-                $font->color('#FFFFFF');
-                $font->align('center');
-                $font->valign('middle');
-            });
-            $img->text('Intervenant', $separator2X + ($colIntervenantWidth / 2), $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
-                if ($fontPath) $font->file($fontPath);
-                $font->size(34);
-                $font->color('#FFFFFF');
-                $font->align('center');
-                $font->valign('middle');
-            });
-            $img->text('Etat', $separator3X + ($colEtatWidth / 2), $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
-                if ($fontPath) $font->file($fontPath);
-                $font->size(34);
-                $font->color('#FFFFFF');
-                $font->align('center');
-                $font->valign('middle');
-            });
-            } else {
-            // 2 colonnes : Description | Etat
-            $drawFilledRect($separatorX, $headerY, $cellBorderWidth, $rowHeight, '#000000');
-            
-            $img->text('Description', $padding + $cellPadding, $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
-                if ($fontPath) $font->file($fontPath);
-                $font->size(36);
-                $font->color('#FFFFFF');
-                $font->align('left');
-                $font->valign('middle');
-            });
-            $img->text('Etat', $separatorX + ($colEtatWidth / 2), $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
-                if ($fontPath) $font->file($fontPath);
-                $font->size(36);
-                $font->color('#FFFFFF');
-                $font->align('center');
-                $font->valign('middle');
-            });
-        }
+        // 3 colonnes : Description | État | Observations
+        $drawFilledRect($separator1X, $headerY, $cellBorderWidth, $rowHeight, '#000000');
+        $drawFilledRect($separator2X, $headerY, $cellBorderWidth, $rowHeight, '#000000');
+        
+        $img->text('Description', $padding + $cellPadding, $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
+            if ($fontPath) $font->file($fontPath);
+            $font->size(34);
+            $font->color('#FFFFFF');
+            $font->align('left');
+            $font->valign('middle');
+        });
+        $img->text('État', $separator1X + ($colEtatWidth / 2), $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
+            if ($fontPath) $font->file($fontPath);
+            $font->size(34);
+            $font->color('#FFFFFF');
+            $font->align('center');
+            $font->valign('middle');
+        });
+        $img->text('Observations', $separator2X + ($colObservationsWidth / 2), $headerY + $rowHeight / 2, function ($font) use ($fontPath) {
+            if ($fontPath) $font->file($fontPath);
+            $font->size(34);
+            $font->color('#FFFFFF');
+            $font->align('center');
+            $font->valign('middle');
+        });
         $y += $rowHeight;
 
         // Afficher les services
@@ -803,7 +760,8 @@ private function generatePngImage($data, $forDownload = false)
                 'success' => 'OK',
                 'error'   => 'KO',
                 'warning' => 'AVERTISSEMENT',
-                'in_progress' => 'En cours',
+                'pending' => 'EN ATTENTE',
+                'in_progress' => 'EN COURS',
                 default   => strtoupper($serviceCheck->statut ?? 'INCONNU'),
             };
 
@@ -811,108 +769,52 @@ private function generatePngImage($data, $forDownload = false)
                 'success' => $okColor,
                 'error'   => $nokColor,
                 'warning' => $warningColor,
+                'pending' => $warningColor,
+                'in_progress' => $warningColor,
                 default   => '#999999',
             };
             
-            if ($hasErrors) {
-                // 4 colonnes : Description | Statut | Intervenant | Etat
-                // Bordures verticales
-                $drawFilledRect($separator1X, $rowY, $cellBorderWidth, $rowHeight, '#000000');
-                $drawFilledRect($separator2X, $rowY, $cellBorderWidth, $rowHeight, '#000000');
-                $drawFilledRect($separator3X, $rowY, $cellBorderWidth, $rowHeight, '#000000');
-                
-                // Description (colonne 1) - titre du service + observations si KO
-                $serviceText = $serviceCheck->service->title ?? 'N/A';
-                $observations = $serviceCheck->observations ?? $serviceCheck->notes ?? '';
-                if ($serviceCheck->statut === 'error' && $observations) {
-                    $serviceText .= ' ' . $observations;
-                }
-                $serviceTextX = $padding + $cellPadding;
-                $img->text($serviceText, $serviceTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
-                    if ($fontPath) $font->file($fontPath);
-                    $font->size(30);
-                    $font->color('#000000');
-                    $font->align('left');
-                    $font->valign('middle');
-                });
-                
-                // Statut (colonne 2) - "En cours" ou autre statut intermédiaire
-                $statutText = match ($serviceCheck->statut) {
-                    'in_progress' => 'En cours',
-                    'pending' => 'En attente',
-                    default => '',
-                };
-                $statutTextX = $separator1X + ($colStatutWidth / 2);
-                $img->text($statutText, $statutTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
-                    if ($fontPath) $font->file($fontPath);
-                    $font->size(30);
-                    $font->color('#000000');
-                    $font->align('center');
-                    $font->valign('middle');
-                });
-                
-                // Intervenant (colonne 3) - nom de l'utilisateur
-                $intervenantName = '';
-                if ($serviceCheck->intervenant && isset($intervenants[$serviceCheck->intervenant])) {
-                    $intervenantName = $intervenants[$serviceCheck->intervenant]->name;
-                }
-                // Si pas d'intervenant assigné mais que c'est un KO, afficher "data center (réseau)" ou autre
-                if (empty($intervenantName) && $serviceCheck->statut === 'error') {
-                    $intervenantName = 'data center (réseau)';
-                }
-                $intervenantTextX = $separator2X + ($colIntervenantWidth / 2);
-                $img->text($intervenantName, $intervenantTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
-                    if ($fontPath) $font->file($fontPath);
-                    $font->size(28);
-                    $font->color('#000000');
-                    $font->align('center');
-                    $font->valign('middle');
-                });
-                
-                // Etat (colonne 4) - KO en rouge ou OK en vert
-                $etatCellX = $separator3X + $cellBorderWidth;
-                $etatCellWidth = $colEtatWidth - $cellBorderWidth;
-                $etatCellY = $rowY + $cellBorderWidth;
-                $etatCellHeight = $rowHeight - ($cellBorderWidth * 2);
-                $drawFilledRect($etatCellX, $etatCellY, $etatCellWidth, $etatCellHeight, $statusColor);
-                $etatTextX = $separator3X + ($colEtatWidth / 2);
-                $img->text($statusLabel, $etatTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
-                    if ($fontPath) $font->file($fontPath);
-                    $font->size(32);
-                    $font->color('#FFFFFF');
-                    $font->align('center');
-                    $font->valign('middle');
-                });
-            } else {
-                // 2 colonnes : Description | Etat
-                $drawFilledRect($separatorX, $rowY, $cellBorderWidth, $rowHeight, '#000000');
-                
-                // Description (colonne 1)
-                $serviceText = $serviceCheck->service->title ?? 'N/A';
-                $serviceTextX = $padding + $cellPadding;
-                $img->text($serviceText, $serviceTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
-                    if ($fontPath) $font->file($fontPath);
-                    $font->size(34);
-                    $font->color('#000000');
-                    $font->align('left');
-                    $font->valign('middle');
-                });
-                
-                // Etat (colonne 2)
-                $etatCellX = $separatorX + $cellBorderWidth;
-                $etatCellWidth = $colEtatWidth - $cellBorderWidth;
-                $etatCellY = $rowY + $cellBorderWidth;
-                $etatCellHeight = $rowHeight - ($cellBorderWidth * 2);
-                $drawFilledRect($etatCellX, $etatCellY, $etatCellWidth, $etatCellHeight, $statusColor);
-                $etatTextX = $separatorX + ($colEtatWidth / 2);
-                $img->text($statusLabel, $etatTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
-                    if ($fontPath) $font->file($fontPath);
-                    $font->size(32);
-                    $font->color('#FFFFFF');
-                    $font->align('center');
-                    $font->valign('middle');
-                });
-            }
+            // 3 colonnes : Description | État | Observations
+            // Bordures verticales
+            $drawFilledRect($separator1X, $rowY, $cellBorderWidth, $rowHeight, '#000000');
+            $drawFilledRect($separator2X, $rowY, $cellBorderWidth, $rowHeight, '#000000');
+            
+            // Description (colonne 1) - titre du service
+            $serviceText = $serviceCheck->service->title ?? 'N/A';
+            $serviceTextX = $padding + $cellPadding;
+            $img->text($serviceText, $serviceTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
+                if ($fontPath) $font->file($fontPath);
+                $font->size(30);
+                $font->color('#000000');
+                $font->align('left');
+                $font->valign('middle');
+            });
+            
+            // État (colonne 2) - OK en vert, KO en rouge, etc.
+            $etatCellX = $separator1X + $cellBorderWidth;
+            $etatCellWidth = $colEtatWidth - ($cellBorderWidth * 2);
+            $etatCellY = $rowY + $cellBorderWidth;
+            $etatCellHeight = $rowHeight - ($cellBorderWidth * 2);
+            $drawFilledRect($etatCellX, $etatCellY, $etatCellWidth, $etatCellHeight, $statusColor);
+            $etatTextX = $separator1X + ($colEtatWidth / 2);
+            $img->text($statusLabel, $etatTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
+                if ($fontPath) $font->file($fontPath);
+                $font->size(32);
+                $font->color('#FFFFFF');
+                $font->align('center');
+                $font->valign('middle');
+            });
+            
+            // Observations (colonne 3) - observations/commentaires
+            $observations = $serviceCheck->observations ?? $serviceCheck->notes ?? '';
+            $observationsTextX = $separator2X + $cellPadding;
+            $img->text($observations, $observationsTextX, $rowY + $rowHeight / 2, function ($font) use ($fontPath) {
+                if ($fontPath) $font->file($fontPath);
+                $font->size(28);
+                $font->color('#000000');
+                $font->align('left');
+                $font->valign('middle');
+            });
 
             $y += $rowHeight;
             $rowIndex++;
@@ -1553,10 +1455,10 @@ private function generatePngImage($data, $forDownload = false)
         table { width: 100%; border-collapse: collapse; margin-top: 0; border-spacing: 0; table-layout: fixed; }
         table th { background-color: #f5f5f5; padding: 12px; text-align: left; border: 1px solid #ddd; font-weight: bold; vertical-align: middle; }
         table td { padding: 12px; border: 1px solid #ddd; word-wrap: break-word; vertical-align: middle; text-align: left; }
-        /* Largeurs fixes en pourcentage pour toutes les colonnes */
+        /* Largeurs fixes en pourcentage pour toutes les colonnes : Service (60%), État (20%), Observations (20%) */
         table th:first-child, table td:first-child { width: 60%; }
-        table th:nth-child(2), table td:nth-child(2) { width: 40%; text-align: right; }
-        table th:last-child, table td:last-child { width: 40%; }
+        table th:nth-child(2), table td:nth-child(2) { width: 20%; text-align: right; }
+        table th:nth-child(3), table td:nth-child(3) { width: 20%; text-align: left; }
         .status-ok { color: #00B050; font-weight: bold; }
         .status-nok { background-color: #FF0000; color: #ffffff; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
         .status-warning { background-color: #FFC000; color: #000000; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
@@ -1572,35 +1474,15 @@ private function generatePngImage($data, $forDownload = false)
         <div class="content">';
         
         foreach ($categories as $catTitle => $services) {
-            // Vérifier s'il y a des statuts non-OK dans cette catégorie
-            // Un service est considéré comme OK seulement si son statut est exactement 'success'
-            $hasNonOkStatus = false;
-            foreach ($services as $sc) {
-                if ($sc->service) {
-                    $statut = $sc->statut ?? null;
-                    // Si le statut n'est pas 'success', alors il y a un problème
-                    if ($statut !== 'success') {
-                        $hasNonOkStatus = true;
-                        break;
-                    }
-                }
-            }
-            
             $html .= '<div class="category">
                 <div class="category-title">' . htmlspecialchars($catTitle) . '</div>
                 <table>
                     <thead>
                         <tr>
-                            <th>Service</th>';
-            
-            // Si tout est OK, afficher la colonne "État", sinon afficher "Observations"
-            if (!$hasNonOkStatus) {
-                $html .= '<th>État</th>';
-            } else {
-                $html .= '<th>Observations</th>';
-            }
-            
-            $html .= '</tr>
+                            <th>Service</th>
+                            <th>État</th>
+                            <th>Observations</th>
+                        </tr>
                     </thead>
                     <tbody>';
             
@@ -1629,24 +1511,17 @@ private function generatePngImage($data, $forDownload = false)
                 
                 $observations = $sc->observations ?? $sc->notes ?? '';
                 
+                // Colonne État (alignée à droite)
+                $statusDisplay = '<span class="' . $statusClass . '">' . $statusLabel . '</span>';
+                
+                // Colonne Observations (alignée à gauche)
+                $observationsDisplay = !empty($observations) ? htmlspecialchars($observations) : '';
+                
                 $html .= '<tr>
-                    <td>' . htmlspecialchars($sc->service->title ?? 'N/A') . '</td>';
-                
-                // Si tout est OK, afficher le statut "OK" en vert, sinon afficher le statut + observations
-                if (!$hasNonOkStatus) {
-                    $html .= '<td><span class="' . $statusClass . '">' . $statusLabel . '</span></td>';
-                } else {
-                    // Afficher le statut et les observations pour les statuts non-OK
-                    if ($sc->statut !== 'success') {
-                        $statusDisplay = '<span class="' . $statusClass . '">' . $statusLabel . '</span>';
-                        $observationsDisplay = !empty($observations) ? '<br><span style="font-size: 12px; color: #666;">' . htmlspecialchars($observations) . '</span>' : '';
-                        $html .= '<td style="text-align: right;">' . $statusDisplay . $observationsDisplay . '</td>';
-                    } else {
-                        $html .= '<td><span class="status-ok">OK</span></td>';
-                    }
-                }
-                
-                $html .= '</tr>';
+                    <td>' . htmlspecialchars($sc->service->title ?? 'N/A') . '</td>
+                    <td style="text-align: right;">' . $statusDisplay . '</td>
+                    <td>' . $observationsDisplay . '</td>
+                </tr>';
             }
             
             $html .= '</tbody></table></div>';

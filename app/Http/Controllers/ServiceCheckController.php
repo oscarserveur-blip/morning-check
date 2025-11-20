@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Check;
 use App\Models\ServiceCheck;
+use App\Mail\IntervenantAssignedMail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class ServiceCheckController extends Controller
 {
@@ -155,9 +157,27 @@ class ServiceCheckController extends Controller
             'intervenant_id' => 'nullable|exists:users,id'
         ]);
 
+        $oldIntervenantId = $serviceCheck->intervenant;
+        $newIntervenantId = $request->intervenant_id;
+
         $serviceCheck->update([
-            'intervenant' => $request->intervenant_id
+            'intervenant' => $newIntervenantId
         ]);
+
+        // Envoyer un email à l'intervenant si un nouvel intervenant est assigné
+        if ($newIntervenantId && $newIntervenantId != $oldIntervenantId) {
+            try {
+                $intervenant = User::find($newIntervenantId);
+                if ($intervenant && $intervenant->email) {
+                    // Recharger les relations nécessaires
+                    $serviceCheck->load(['check.client', 'service']);
+                    Mail::to($intervenant->email)->send(new IntervenantAssignedMail($serviceCheck, $intervenant));
+                }
+            } catch (\Exception $e) {
+                \Log::error('Erreur envoi email intervenant: ' . $e->getMessage());
+                // Ne pas bloquer la mise à jour si l'email échoue
+            }
+        }
 
         // Recalculer le statut du check principal
         $this->updateCheckStatut($serviceCheck->check);
@@ -217,12 +237,30 @@ class ServiceCheckController extends Controller
                 
                 if ($serviceCheck && $serviceCheck->check_id == $check->id) {
                     \Log::info('Avant mise à jour:', $serviceCheck->toArray());
+                    $oldIntervenantId = $serviceCheck->intervenant;
+                    $newIntervenantId = $serviceCheckData['intervenant_id'] ?? null;
+                    
                     $serviceCheck->update([
                         'statut' => $serviceCheckData['status'],
                         'observations' => $serviceCheckData['observations'] ?? null,
-                        'intervenant' => $serviceCheckData['intervenant_id'] ?? null
+                        'intervenant' => $newIntervenantId
                     ]);
                     \Log::info('Après mise à jour:', $serviceCheck->fresh()->toArray());
+                    
+                    // Envoyer un email à l'intervenant si un nouvel intervenant est assigné
+                    if ($newIntervenantId && $newIntervenantId != $oldIntervenantId) {
+                        try {
+                            $intervenant = User::find($newIntervenantId);
+                            if ($intervenant && $intervenant->email) {
+                                // Recharger les relations nécessaires
+                                $serviceCheck->load(['check.client', 'service']);
+                                Mail::to($intervenant->email)->send(new IntervenantAssignedMail($serviceCheck, $intervenant));
+                            }
+                        } catch (\Exception $e) {
+                            \Log::error('Erreur envoi email intervenant: ' . $e->getMessage());
+                            // Ne pas bloquer la mise à jour si l'email échoue
+                        }
+                    }
                 } else {
                     \Log::warning('Service check non trouvé ou ne correspond pas au check:', $serviceCheckData);
                 }
