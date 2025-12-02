@@ -8,6 +8,7 @@ use App\Models\Template;
 use App\Http\Traits\ManagesUserPermissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class ClientController extends Controller
 {
@@ -222,11 +223,40 @@ class ClientController extends Controller
 
     public function destroy(Client $client)
     {
-        if ($client->logo) {
-            Storage::disk('public')->delete($client->logo);
-        }
+        // Vérifier les autorisations
+        $this->authorizeClientAccess($client);
         
-        $client->delete();
+        // Utiliser une transaction pour garantir l'intégrité des données
+        DB::transaction(function () use ($client) {
+            // 1. Supprimer les service_checks liés aux checks du client
+            foreach ($client->checks as $check) {
+                $check->serviceChecks()->delete();
+            }
+            
+            // 2. Supprimer les checks
+            $client->checks()->delete();
+            
+            // 3. Supprimer les services et leurs service_checks
+            foreach ($client->categories as $category) {
+                foreach ($category->services as $service) {
+                    // Supprimer les service_checks liés à ce service
+                    DB::table('service_checks')->where('service_id', $service->id)->delete();
+                    // Supprimer le service
+                    $service->delete();
+                }
+            }
+            
+            // 4. Supprimer les catégories
+            $client->categories()->delete();
+            
+            // 5. Supprimer le logo
+            if ($client->logo) {
+                Storage::disk('public')->delete($client->logo);
+            }
+            
+            // 6. Supprimer le client
+            $client->delete();
+        });
 
         return redirect('/clients')
             ->with('success', 'Client supprimé avec succès.');
