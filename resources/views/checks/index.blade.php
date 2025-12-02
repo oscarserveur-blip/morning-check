@@ -168,7 +168,7 @@
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
                                         @if($check->client->logo)
-                                            <img class="h-8 w-8 rounded-full mr-3" src="{{ asset('storage/' . $check->client->logo) }}" alt="{{ $check->client->label }}">
+                                            <img class="h-8 w-8 rounded-full mr-3" src="/storage/{{ $check->client->logo }}" alt="{{ $check->client->label }}">
                                         @else
                                             <div class="h-8 w-8 rounded-full bg-gray-200 mr-3 flex items-center justify-center">
                                                 <i class="bi bi-building text-gray-500"></i>

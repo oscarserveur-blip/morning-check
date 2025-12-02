@@ -197,7 +197,7 @@
                                         </td>
                                         <td>
                                             @if($client->logo)
-                                                <img src="{{ asset('storage/' . $client->logo) }}" 
+                                                <img src="/storage/{{ $client->logo }}" 
                                                      alt="Logo" 
                                                      class="rounded-circle" 
                                                      width="40" 

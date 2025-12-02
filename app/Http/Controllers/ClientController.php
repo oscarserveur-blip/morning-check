@@ -141,7 +141,7 @@ class ClientController extends Controller
 
         Client::create($validated);
 
-        return redirect()->route('clients.index')
+        return redirect()->route('clients.index', absolute: false)
             ->with('success', 'Client créé avec succès.');
     }
 
@@ -216,7 +216,7 @@ class ClientController extends Controller
         }
 
         // Sinon, on fait la redirection classique
-        return redirect()->route('clients.index')
+        return redirect()->route('clients.index', absolute: false)
             ->with('success', 'Client mis à jour avec succès.');
     }
 
@@ -228,7 +228,7 @@ class ClientController extends Controller
         
         $client->delete();
 
-        return redirect()->route('clients.index')
+        return redirect('/clients')
             ->with('success', 'Client supprimé avec succès.');
     }
 
@@ -299,7 +299,7 @@ class ClientController extends Controller
                 $newService->push();
             }
         }
-        return redirect()->route('clients.edit', $newClient->id)
+        return redirect()->route('clients.edit', ['client' => $newClient->id], absolute: false)
             ->with('success', 'Client dupliqué avec ses catégories et services.');
     }
 

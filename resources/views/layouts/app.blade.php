@@ -29,7 +29,7 @@
             }
             .sidebar {
                 min-height: 100vh;
-                background: #4A90E2; /* Bleu Bouygues doux */
+                background: #001F36;
                 color: white;
             }
             .sidebar .nav-link {

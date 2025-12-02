@@ -169,7 +169,7 @@
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
                                         @if($service->category->client->logo)
-                                            <img class="h-6 w-6 rounded-full mr-2" src="{{ asset('storage/' . $service->category->client->logo) }}" alt="{{ $service->category->client->label }}">
+                                            <img class="h-6 w-6 rounded-full mr-2" src="/storage/{{ $service->category->client->logo }}" alt="{{ $service->category->client->label }}">
                                         @else
                                             <div class="h-6 w-6 rounded-full bg-gray-200 mr-2 flex items-center justify-center">
                                                 <i class="bi bi-building text-gray-500 text-xs"></i>

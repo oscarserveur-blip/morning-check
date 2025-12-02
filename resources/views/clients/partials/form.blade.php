@@ -10,7 +10,7 @@
         <input type="file" class="form-control" id="logo" name="logo" accept="image/*">
         @if($client->logo)
             <div class="mt-2">
-                <img src="{{ asset('storage/' . $client->logo) }}" alt="Logo actuel" class="rounded" style="max-height: 60px;">
+                <img src="/storage/{{ $client->logo }}" alt="Logo actuel" class="rounded" style="max-height: 60px;">
             </div>
         @endif
     </div>

@@ -1157,7 +1157,9 @@ private function generatePngImage($data, $forDownload = false)
         // Le SMTP ne fonctionne que sur le serveur de production
         $isLocal = app()->environment('local') || 
                    config('app.debug') === true ||
-                   config('app.env') === 'local';
+                   config('app.env') === 'local' ||
+                   config('mail.default') === 'log' ||
+                   config('mail.default') === 'array';
         
         if ($isLocal) {
             if (request()->ajax() || request()->wantsJson()) {
@@ -1243,11 +1245,17 @@ private function generatePngImage($data, $forDownload = false)
             ]);
             
             $errorMessage = "Échec de l'envoi de l'email";
-            // Message plus explicite pour les erreurs SSL/STMP
-            if (str_contains($e->getMessage(), 'SSL') || str_contains($e->getMessage(), 'STARTTLS') || str_contains($e->getMessage(), 'certificate')) {
+            // Message plus explicite pour les erreurs de connexion SMTP
+            $errorMsg = $e->getMessage();
+            if (str_contains($errorMsg, 'Connection refused') || 
+                str_contains($errorMsg, 'Unable to connect') || 
+                str_contains($errorMsg, 'Connection could not be established')) {
+                $errorMessage .= ": Le serveur SMTP n'est pas accessible. ";
+                $errorMessage .= "En développement local, configurez MAIL_MAILER=log dans votre .env pour éviter cette erreur.";
+            } elseif (str_contains($errorMsg, 'SSL') || str_contains($errorMsg, 'STARTTLS') || str_contains($errorMsg, 'certificate')) {
                 $errorMessage .= ": Erreur de connexion SMTP. Vérifiez que vous êtes sur le serveur de production et que la configuration SMTP est correcte.";
             } else {
-                $errorMessage .= ": " . $e->getMessage();
+                $errorMessage .= ": " . $errorMsg;
             }
             
             if (request()->ajax() || request()->wantsJson()) {

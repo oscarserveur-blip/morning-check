@@ -29,7 +29,7 @@
                                     <div class="row">
                                         <div class="col-md-4">
                                             @if($client->logo)
-                                                <img src="{{ asset('storage/' . $client->logo) }}" 
+                                                <img src="/storage/{{ $client->logo }}" 
                                                      alt="{{ $client->label }}" 
                                                      class="img-fluid rounded" 
                                                      style="max-height: 120px; max-width: 100%;">

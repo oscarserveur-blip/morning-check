@@ -61,7 +61,7 @@
                                 </div>
                                 @if(isset($client) && $client->logo)
                                     <div class="mt-2">
-                                        <img src="{{ asset('storage/' . $client->logo) }}" 
+                                        <img src="/storage/{{ $client->logo }}" 
                                              alt="Logo actuel" 
                                              class="rounded" 
                                              style="max-height: 100px;">

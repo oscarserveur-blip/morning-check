@@ -34,7 +34,7 @@ class CategoryController extends Controller
     public function create()
     {
         if (!request()->has('client_id')) {
-            return redirect()->route('clients.index')
+            return redirect()->route('clients.index', absolute: false)
                 ->with('error', 'Un client doit être sélectionné pour créer une catégorie.');
         }
 
@@ -60,7 +60,7 @@ class CategoryController extends Controller
             'created_by' => Auth::id(),
         ]);
 
-        return redirect()->route('clients.show', ['client' => $request->client_id, 'tab' => 'categories'])
+        return redirect()->route('clients.show', ['client' => $request->client_id, 'tab' => 'categories'], absolute: false)
             ->with('success', 'Catégorie créée avec succès.');
     }
 

@@ -97,11 +97,11 @@
                                     <small class="form-text text-muted">Vous pouvez importer une image (logo) à utiliser dans le header du template.</small>
                                     @if(isset($template) && $template->header_logo)
                                         <div class="mt-2">
-                                            <img src="{{ asset('storage/' . $template->header_logo) }}" alt="Logo actuel" style="max-height:60px;">
+                                            <img src="/storage/{{ $template->header_logo }}" alt="Logo actuel" style="max-height:60px;">
                                         </div>
                                     @elseif(session('imported_header_logo'))
                                         <div class="mt-2">
-                                            <img src="{{ asset('storage/' . session('imported_header_logo')) }}" alt="Logo importé" style="max-height:60px;">
+                                            <img src="/storage/{{ session('imported_header_logo') }}" alt="Logo importé" style="max-height:60px;">
                                         </div>
                                     @endif
                                 </div>
