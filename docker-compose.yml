@@ -44,11 +44,12 @@ services:
         chmod -R 775 storage bootstrap/cache &&
         if [ ! -f storage/app/initialized ]; then
           php artisan key:generate --force
+          php artisan migrate --force &&
+          php artisan db:seed --force &&
           touch storage/app/initialized
         fi &&
         php /var/www/wait-for-mysql.php &&
         php artisan migrate --force &&
-        php artisan db:seed --force &&
         php artisan storage:link || true &&
         php artisan config:cache &&
         php artisan route:cache &&
