@@ -6,11 +6,7 @@ services:
     container_name: check-du-matin-blade-app
     restart: unless-stopped
     working_dir: /var/www
-    ports:
-      - "8001:8000"
-    depends_on:
-      db:
-        condition: service_healthy
+    network_mode: host
     volumes:
       - ./.env.prod:/var/www/.env  # <- ton vrai .env
       - app_storage:/var/www/storage
@@ -22,18 +18,17 @@ services:
       ASSET_URL: https://checking.c2s.fr
       SESSION_SECURE_COOKIE: "true"
       DB_CONNECTION: mysql
-      DB_HOST: db
-      DB_PORT: 3306
+      DB_HOST: localhost
+      DB_PORT: 3307
       DB_DATABASE: check_du_matin
       DB_USERNAME: laravel
       DB_PASSWORD: laravel
-      MAIL_MAILER: smtp
+      MAIL_MAILER: sendmail
       MAIL_HOST: relais.services.c-2-s.info
       MAIL_PORT: 25
       MAIL_USERNAME: null
       MAIL_PASSWORD: null
       MAIL_ENCRYPTION: null
-      MAIL_DSN: smtp://relais.services.c-2-s.info:25?encryption=null&verify_peer=0&verify_peer_name=0
       MAIL_VERIFY_PEER: "false"
       MAIL_VERIFY_PEER_NAME: "false"
       MAIL_ALLOW_SELF_SIGNED: "true"
@@ -68,7 +63,7 @@ services:
       MYSQL_PASSWORD: laravel
       MYSQL_ROOT_PASSWORD: root
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
