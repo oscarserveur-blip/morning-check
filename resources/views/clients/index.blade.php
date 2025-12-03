@@ -232,17 +232,30 @@
                                                 <a href="{{ route('clients.duplicate', $client) }}" class="btn btn-sm btn-outline-secondary" title="Dupliquer" onclick="event.stopPropagation();">
                                                     <i class="bi bi-files"></i>
                                                 </a>
-                                                <form action="{{ route('clients.destroy', $client) }}" 
-                                                      method="POST" 
-                                                      class="d-inline"
-                                                      onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce client ?')"
-                                                      onclick="event.stopPropagation();">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </form>
+                                                @if(Auth::user()->isGestionnaire())
+                                                    <form action="{{ route('clients.detach', $client) }}" 
+                                                          method="POST" 
+                                                          class="d-inline"
+                                                          onsubmit="return confirm('Êtes-vous sûr de vouloir vous désaffecter de ce client ?')"
+                                                          onclick="event.stopPropagation();">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-sm btn-outline-warning" title="Se désaffecter">
+                                                            <i class="bi bi-person-dash"></i>
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    <form action="{{ route('clients.destroy', $client) }}" 
+                                                          method="POST" 
+                                                          class="d-inline"
+                                                          onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce client ?')"
+                                                          onclick="event.stopPropagation();">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                @endif
                                             </div>
                                         </td>
                                     </tr>

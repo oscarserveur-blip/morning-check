@@ -226,6 +226,18 @@ class ClientController extends Controller
         // Vérifier les autorisations
         $this->authorizeClientAccess($client);
         
+        // Empêcher les gestionnaires de supprimer des clients
+        $user = auth()->user();
+        if ($user->isGestionnaire()) {
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Les gestionnaires ne peuvent pas supprimer des clients. Utilisez la fonctionnalité de désaffectation.'
+                ], 403);
+            }
+            return back()->with('error', 'Les gestionnaires ne peuvent pas supprimer des clients. Utilisez la fonctionnalité de désaffectation.');
+        }
+        
         // Utiliser une transaction pour garantir l'intégrité des données
         DB::transaction(function () use ($client) {
             // 1. Supprimer les service_checks liés aux checks du client
@@ -311,26 +323,119 @@ class ClientController extends Controller
         ]);
     }
 
-    public function duplicate($id)
+    public function duplicate(Client $client)
     {
-        $client = \App\Models\Client::with(['categories.services'])->findOrFail($id);
+        // Vérifier les autorisations
+        $this->authorizeClientAccess($client);
+        
+        // Charger toutes les relations nécessaires
+        $client->load(['categories.services', 'mailings']);
+        
         // Dupliquer le client
         $newClient = $client->replicate();
         $newClient->label = $client->label . ' (copie)';
+        
+        // Gérer la duplication du logo si présent
+        if ($client->logo && Storage::disk('public')->exists($client->logo)) {
+            try {
+                // Générer un nouveau nom de fichier unique
+                $extension = pathinfo($client->logo, PATHINFO_EXTENSION);
+                $filename = time() . '_' . uniqid() . '.' . $extension;
+                $newLogoPath = 'logos/' . $filename;
+                
+                // Copier le fichier logo
+                $originalPath = Storage::disk('public')->path($client->logo);
+                $newPath = Storage::disk('public')->path($newLogoPath);
+                
+                // Créer le répertoire si nécessaire
+                $directory = dirname($newPath);
+                if (!is_dir($directory)) {
+                    mkdir($directory, 0755, true);
+                }
+                
+                // Copier le fichier
+                copy($originalPath, $newPath);
+                
+                // Mettre à jour le chemin du logo pour le nouveau client
+                $newClient->logo = $newLogoPath;
+            } catch (\Exception $e) {
+                // En cas d'erreur, ne pas copier le logo mais continuer la duplication
+                \Log::warning('Erreur lors de la copie du logo lors de la duplication: ' . $e->getMessage());
+                $newClient->logo = null;
+            }
+        } else {
+            // Pas de logo à copier
+            $newClient->logo = null;
+        }
+        
         $newClient->push();
+        
         // Dupliquer les catégories et services
         foreach ($client->categories as $category) {
             $newCategory = $category->replicate();
             $newCategory->client_id = $newClient->id;
             $newCategory->push();
+            
             foreach ($category->services as $service) {
                 $newService = $service->replicate();
                 $newService->category_id = $newCategory->id;
                 $newService->push();
             }
         }
-        return redirect()->route('clients.edit', ['client' => $newClient->id], absolute: false)
-            ->with('success', 'Client dupliqué avec ses catégories et services.');
+        
+        // Dupliquer les mailings
+        foreach ($client->mailings as $mailing) {
+            $newMailing = $mailing->replicate();
+            $newMailing->client_id = $newClient->id;
+            $newMailing->push();
+        }
+        
+        // Redirection vers la liste des clients avec message de succès
+        return redirect('/clients')
+            ->with('success', 'Client dupliqué avec succès. Vous pouvez maintenant le modifier.');
+    }
+
+    /**
+     * Désaffecter un gestionnaire d'un client
+     */
+    public function detach(Client $client)
+    {
+        $user = auth()->user();
+        
+        // Seuls les gestionnaires peuvent se désaffecter
+        if (!$user->isGestionnaire()) {
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Seuls les gestionnaires peuvent se désaffecter d\'un client.'
+                ], 403);
+            }
+            return back()->with('error', 'Seuls les gestionnaires peuvent se désaffecter d\'un client.');
+        }
+        
+        // Vérifier que l'utilisateur est bien affecté à ce client
+        if (!$user->clients->contains($client->id)) {
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vous n\'êtes pas affecté à ce client.'
+                ], 404);
+            }
+            return back()->with('error', 'Vous n\'êtes pas affecté à ce client.');
+        }
+        
+        // Désaffecter l'utilisateur du client
+        $user->clients()->detach($client->id);
+        
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Vous avez été désaffecté du client avec succès.'
+            ]);
+        }
+        
+        return redirect('/clients')
+            ->with('success', 'Vous avez été désaffecté du client avec succès.');
     }
 
     /**

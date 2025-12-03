@@ -6,7 +6,6 @@ use App\Models\Template;
 use App\Http\Traits\ManagesUserPermissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class TemplateController extends Controller
 {
@@ -101,37 +100,6 @@ class TemplateController extends Controller
             }
         }
 
-        if ($request->hasFile('excel_template')) {
-            $file = $request->file('excel_template');
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $path = $file->storeAs('templates', $filename, 'public');
-            $validated['excel_template'] = $path;
-            // Aperçu du contenu Excel
-            $spreadsheet = IOFactory::load($file->getRealPath());
-            $sheet = $spreadsheet->getActiveSheet();
-            $previewRows = [];
-            foreach ($sheet->getRowIterator(1, 10) as $row) {
-                $rowData = [];
-                foreach ($row->getCellIterator() as $cell) {
-                    $rowData[] = $cell->getValue();
-                }
-                $previewRows[] = $rowData;
-            }
-            // Extraction automatique des infos clés
-            $headerTitle = $sheet->getCell('C1')->getValue();
-            $headerColor = $sheet->getStyle('C1')->getFill()->getStartColor()->getRGB();
-            $highestRow = $sheet->getHighestRow();
-            $footerText = $sheet->getCell('A' . $highestRow)->getValue();
-            $footerColor = $sheet->getStyle('A' . $highestRow)->getFont()->getColor()->getRGB();
-            session([
-                'excel_preview' => $previewRows,
-                'imported_header_title' => $headerTitle,
-                'imported_header_color' => $headerColor,
-                'imported_footer_text' => $footerText,
-                'imported_footer_color' => $footerColor,
-            ]);
-        }
-
         $template = Template::create($validated);
 
         // Gérer la configuration simplifiée
@@ -143,10 +111,6 @@ class TemplateController extends Controller
         // Associer le template aux clients sélectionnés
         $clientIds = $request->input('client_ids', []);
         $template->clients()->attach($clientIds);
-
-        if (isset($previewRows)) {
-            return redirect()->route('templates.edit', $template->id)->with('excel_preview', $previewRows);
-        }
 
         return redirect()->route('templates.index')
             ->with('success', 'Template créé avec succès.');
@@ -403,7 +367,6 @@ class TemplateController extends Controller
             'show_contact_info' => $request->boolean('show_contact_info', true),
             'ok_color' => $request->input('ok_color', '00B050'),
             'nok_color' => $request->input('nok_color', 'FF0000'),
-            'warning_color' => $request->input('warning_color', 'FFC000'),
             'font' => [
                 'family' => $request->input('font_family', 'Arial'),
                 'size' => $request->input('font_size', 12)

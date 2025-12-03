@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const config = {
             ok_color: document.getElementById('ok_color').value.replace('#', ''),
             nok_color: document.getElementById('nok_color').value.replace('#', ''),
-            warning_color: document.getElementById('warning_color').value.replace('#', ''),
             status_style: document.getElementById('status_style').value,
             date_format: document.getElementById('date_format').value,
             show_timestamp: document.getElementById('show_timestamp').checked,
@@ -33,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Écouteurs d'événements pour tous les champs de couleur et configuration
-    const colorInputs = ['ok_color', 'nok_color', 'warning_color', 'header_color', 'footer_color'];
+    const colorInputs = ['ok_color', 'nok_color', 'header_color', 'footer_color'];
     const configInputs = ['status_style', 'date_format', 'show_timestamp', 'show_contact_info'];
     
     [...colorInputs, ...configInputs].forEach(id => {
@@ -77,7 +76,6 @@ function updatePreview() {
     const footerText = document.querySelector('input[name="footer_text"]').value || 'Contact: support@example.com';
     const footerColor = document.getElementById('footer_color').value;
     const okColor = document.getElementById('ok_color').value;
-    const warningColor = document.getElementById('warning_color').value;
     const nokColor = document.getElementById('nok_color').value;
 
     // ... Reste du code updatePreview existant ...
@@ -85,9 +83,6 @@ function updatePreview() {
     // Mise à jour des couleurs des badges
     document.querySelectorAll('.badge-ok').forEach(badge => {
         badge.style.backgroundColor = okColor;
-    });
-    document.querySelectorAll('.badge-warning').forEach(badge => {
-        badge.style.backgroundColor = warningColor;
     });
     document.querySelectorAll('.badge-nok').forEach(badge => {
         badge.style.backgroundColor = nokColor;

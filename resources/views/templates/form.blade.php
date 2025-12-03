@@ -229,7 +229,7 @@
                                 <div class="mb-4">
                                     <h6 class="mb-3">🎨 Couleurs des statuts</h6>
                                     <div class="row">
-                                        <div class="col-md-4">
+                                        <div class="col-md-6">
                                             <div class="mb-3">
                                                 <label for="ok_color" class="form-label">Couleur OK</label>
                                                 <input type="color" 
@@ -239,17 +239,7 @@
                                                     value="#{{ old('ok_color', isset($template->config['ok_color']) ? $template->config['ok_color'] : '00B050') }}">
                                             </div>
                                         </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label for="warning_color" class="form-label">Couleur Avertissement</label>
-                                                <input type="color" 
-                                                    class="form-control form-control-color" 
-                                                    id="warning_color" 
-                                                    name="warning_color" 
-                                                    value="#{{ old('warning_color', isset($template->config['warning_color']) ? $template->config['warning_color'] : 'FFC000') }}">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
+                                        <div class="col-md-6">
                                             <div class="mb-3">
                                                 <label for="nok_color" class="form-label">Couleur NOK</label>
                                                 <input type="color" 
@@ -262,45 +252,6 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-12">
-                                <div class="mb-3">
-                                    <label for="excel_template" class="form-label">Importer un fichier Excel (.xlsx)</label>
-                                    <input type="file" name="excel_template" id="excel_template" class="form-control" accept=".xlsx">
-                                    <small class="form-text text-muted">Vous pouvez importer un fichier Excel comme base de votre template.</small>
-                                </div>
-                            </div>
-                            @if(session('excel_preview'))
-                                <div class="mb-4 p-3 border rounded bg-light shadow-sm">
-                                    <div class="d-flex align-items-center mb-2">
-                                        <span class="me-2" style="font-size:1.5rem;">📄</span>
-                                        <h5 class="mb-0">Aperçu du fichier Excel importé</h5>
-                                    </div>
-                                    <div class="table-responsive">
-                                        <table class="table table-bordered table-hover align-middle mb-0">
-                                            <thead class="table-primary">
-                                                <tr>
-                                                    <th style="width:40px;">#</th>
-                                                    @php $maxCols = 0; foreach(session('excel_preview') as $row) { $maxCols = max($maxCols, count($row)); } @endphp
-                                                    @for($col=1; $col<=$maxCols; $col++)
-                                                        <th>Col {{ $col }}</th>
-                                                    @endfor
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                    @foreach(session('excel_preview') as $i => $row)
-                                                        <tr>
-                                                            <td class="bg-light text-muted">{{ $i+1 }}</td>
-                                                            @for($col=0; $col<$maxCols; $col++)
-                                                                <td>{{ $row[$col] ?? '' }}</td>
-                                                            @endfor
-                                                        </tr>
-                                                    @endforeach
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <small class="form-text text-muted">Seules les 10 premières lignes sont affichées. Vérifiez la structure avant de continuer.</small>
-                                </div>
-                            @endif
                         </div>
                         <div class="d-flex justify-content-end mt-4">
                             <a href="{{ route('templates.index') }}" class="btn btn-light me-2">Annuler</a>

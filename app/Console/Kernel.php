@@ -13,6 +13,9 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('checks:create')->everyFiveMinutes();
+        
+        // Supprimer les checks de plus d'un mois chaque jour à 2h du matin
+        $schedule->command('checks:delete-old')->dailyAt('02:00');
     }
 
     /**

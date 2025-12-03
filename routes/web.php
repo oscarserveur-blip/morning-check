@@ -30,6 +30,7 @@ Route::middleware(['auth', 'force.password.change'])->group(function () {
     Route::resource('clients', ClientController::class);
     Route::post('/clients/{client}/checks/auto', [ClientController::class, 'autoCheck'])->name('clients.auto-check');
     Route::get('/clients/{client}/duplicate', [\App\Http\Controllers\ClientController::class, 'duplicate'])->name('clients.duplicate');
+    Route::post('/clients/{client}/detach', [ClientController::class, 'detach'])->name('clients.detach');
     Route::get('/clients/categories', [ClientController::class, 'getCategories'])->name('clients.categories');
 
     // Routes pour les catégories
