@@ -1466,13 +1466,13 @@ private function generatePngImage($data, $forDownload = false)
         .content { padding: 20px; }
         .category { margin-bottom: 30px; }
         .category-title { background-color: ' . $headerColor . '; color: #ffffff; padding: 10px 15px; font-weight: bold; font-size: 16px; margin-bottom: 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 0; border-spacing: 0; table-layout: fixed; }
-        table th { background-color: #f5f5f5; padding: 12px; text-align: left; border: 1px solid #ddd; font-weight: bold; vertical-align: middle; }
-        table td { padding: 12px; border: 1px solid #ddd; word-wrap: break-word; vertical-align: middle; text-align: left; }
-        /* Largeurs fixes en pourcentage pour toutes les colonnes : Service (60%), État (20%), Observations (20%) */
-        table th:first-child, table td:first-child { width: 60%; }
-        table th:nth-child(2), table td:nth-child(2) { width: 20%; text-align: right; }
-        table th:nth-child(3), table td:nth-child(3) { width: 20%; text-align: left; }
+        table { width: 100%; border-collapse: collapse; margin-top: 0; border-spacing: 0; }
+        table th { background-color: #f5f5f5; padding: 12px 15px; text-align: left; border: 1px solid #ddd; font-weight: bold; vertical-align: middle; }
+        table td { padding: 12px 15px; border: 1px solid #ddd; word-wrap: break-word; vertical-align: top; }
+        /* Largeurs fixes en pourcentage pour toutes les colonnes : Service (50%), État (25%), Observations (25%) */
+        table th:first-child, table td:first-child { width: 50%; text-align: left; }
+        table th:nth-child(2), table td:nth-child(2) { width: 25%; text-align: center; }
+        table th:nth-child(3), table td:nth-child(3) { width: 25%; text-align: left; }
         .status-ok { color: #00B050; font-weight: bold; }
         .status-nok { background-color: #FF0000; color: #ffffff; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
         .status-warning { background-color: #FFC000; color: #000000; padding: 5px 10px; border-radius: 3px; font-weight: bold; }
@@ -1493,9 +1493,9 @@ private function generatePngImage($data, $forDownload = false)
                 <table>
                     <thead>
                         <tr>
-                            <th>Service</th>
-                            <th>État</th>
-                            <th>Observations</th>
+                            <th style="text-align: left;">Service</th>
+                            <th style="text-align: center;">État</th>
+                            <th style="text-align: left;">Observations</th>
                         </tr>
                     </thead>
                     <tbody>';
@@ -1533,7 +1533,7 @@ private function generatePngImage($data, $forDownload = false)
                 
                 $html .= '<tr>
                     <td>' . htmlspecialchars($sc->service->title ?? 'N/A') . '</td>
-                    <td style="text-align: right;">' . $statusDisplay . '</td>
+                    <td style="text-align: center;">' . $statusDisplay . '</td>
                     <td>' . $observationsDisplay . '</td>
                 </tr>';
             }
