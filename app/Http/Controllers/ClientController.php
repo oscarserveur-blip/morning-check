@@ -140,9 +140,26 @@ class ClientController extends Controller
             }
         }
 
-        Client::create($validated);
+        try {
+            $client = Client::create($validated);
+            
+            // Si l'utilisateur est un gestionnaire, l'affecter automatiquement au client
+            $user = auth()->user();
+            if ($user && $user->isGestionnaire()) {
+                $client->users()->attach($user->id);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors de la création du client: ' . $e->getMessage(), [
+                'exception' => $e,
+                'validated' => $validated
+            ]);
+            
+            return redirect()->back()
+                ->withErrors(['error' => 'Erreur lors de la création du client: ' . $e->getMessage()])
+                ->withInput();
+        }
 
-        return redirect()->route('clients.index', absolute: false)
+        return redirect('/clients')
             ->with('success', 'Client créé avec succès.');
     }
 
@@ -217,7 +234,7 @@ class ClientController extends Controller
         }
 
         // Sinon, on fait la redirection classique
-        return redirect()->route('clients.index', absolute: false)
+        return redirect('/clients')
             ->with('success', 'Client mis à jour avec succès.');
     }
 
@@ -388,6 +405,12 @@ class ClientController extends Controller
             $newMailing = $mailing->replicate();
             $newMailing->client_id = $newClient->id;
             $newMailing->push();
+        }
+        
+        // Si l'utilisateur est un gestionnaire, l'affecter automatiquement au client dupliqué
+        $user = auth()->user();
+        if ($user && $user->isGestionnaire()) {
+            $newClient->users()->attach($user->id);
         }
         
         // Redirection vers la liste des clients avec message de succès
