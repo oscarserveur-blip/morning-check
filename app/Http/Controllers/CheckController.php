@@ -1247,13 +1247,19 @@ private function generatePngImage($data, $forDownload = false)
             $errorMessage = "Échec de l'envoi de l'email";
             // Message plus explicite pour les erreurs de connexion SMTP
             $errorMsg = $e->getMessage();
+            $isProduction = app()->environment('production');
+            
             if (str_contains($errorMsg, 'Connection refused') || 
                 str_contains($errorMsg, 'Unable to connect') || 
                 str_contains($errorMsg, 'Connection could not be established')) {
                 $errorMessage .= ": Le serveur SMTP n'est pas accessible. ";
-                $errorMessage .= "En développement local, configurez MAIL_MAILER=log dans votre .env pour éviter cette erreur.";
+                if ($isProduction) {
+                    $errorMessage .= "Vérifiez que le serveur SMTP (relais.services.c-2-s.info:25) est accessible depuis le conteneur Docker et que le port 25 n'est pas bloqué par un firewall.";
+                } else {
+                    $errorMessage .= "En développement local, configurez MAIL_MAILER=log dans votre .env pour éviter cette erreur.";
+                }
             } elseif (str_contains($errorMsg, 'SSL') || str_contains($errorMsg, 'STARTTLS') || str_contains($errorMsg, 'certificate')) {
-                $errorMessage .= ": Erreur de connexion SMTP. Vérifiez que vous êtes sur le serveur de production et que la configuration SMTP est correcte.";
+                $errorMessage .= ": Erreur de connexion SMTP. Vérifiez la configuration SMTP (encryption, certificats) dans votre fichier .env.";
             } else {
                 $errorMessage .= ": " . $errorMsg;
             }
