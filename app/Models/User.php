@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
 use Filament\Models\Contracts\HasName;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use App\Notifications\ResetPasswordNotification;
 
 
 class User extends Authenticatable
@@ -116,5 +117,16 @@ class User extends Authenticatable
         }
 
         return collect();
+    }
+
+    /**
+     * Envoie la notification de réinitialisation de mot de passe.
+     *
+     * @param  string  $token
+     * @return void
+     */
+    public function sendPasswordResetNotification($token)
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 }
