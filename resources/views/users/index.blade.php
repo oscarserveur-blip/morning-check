@@ -110,10 +110,9 @@
                                                 <a href="{{ route('users.edit', $user) }}" class="btn btn-sm btn-outline-primary" title="Éditer">
                                                     <i class="bi bi-pencil"></i>
                                                 </a>
-                                                <form action="{{ route('users.send-password-reset', $user) }}" method="POST" style="display:inline-block;">
+                                                <form action="{{ route('users.send-password-reset', $user) }}" method="POST" class="send-password-reset-form" style="display:inline-block;">
                                                     @csrf
                                                     <button type="submit" class="btn btn-sm btn-outline-warning" 
-                                                            onclick="return confirm('Envoyer un email de réinitialisation de mot de passe à {{ $user->email }} ?')" 
                                                             title="Envoyer un email de réinitialisation">
                                                         <i class="bi bi-key"></i>
                                                     </button>
@@ -165,4 +164,85 @@
     font-size: 14px;
 }
 </style>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Gérer les formulaires de réinitialisation de mot de passe
+    document.querySelectorAll('.send-password-reset-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const button = form.querySelector('button[type="submit"]');
+            const originalText = button.innerHTML;
+            const userEmail = form.closest('tr').querySelector('td:nth-child(2)').textContent.trim();
+            
+            // Confirmation avec SweetAlert
+            Swal.fire({
+                title: 'Confirmer l\'envoi',
+                text: `Envoyer un email de réinitialisation de mot de passe à ${userEmail} ?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#4A90E2',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Oui, envoyer',
+                cancelButtonText: 'Annuler'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Désactiver le bouton pendant l'envoi
+                    button.disabled = true;
+                    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+                    
+                    // Envoi AJAX
+                    const formData = new FormData(form);
+                    fetch(form.action, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        button.disabled = false;
+                        button.innerHTML = originalText;
+                        
+                        if (data.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Email envoyé',
+                                text: data.message,
+                                confirmButtonColor: '#4A90E2',
+                                timer: 3000,
+                                showConfirmButton: true
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erreur',
+                                text: data.message || 'Une erreur est survenue lors de l\'envoi de l\'email.',
+                                confirmButtonColor: '#4A90E2'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        button.disabled = false;
+                        button.innerHTML = originalText;
+                        
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Erreur',
+                            text: 'Une erreur est survenue lors de l\'envoi de l\'email.',
+                            confirmButtonColor: '#4A90E2'
+                        });
+                    });
+                }
+            });
+        });
+    });
+});
+</script>
+@endpush
 @endsection 

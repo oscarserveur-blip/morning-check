@@ -147,14 +147,32 @@ class UserController extends Controller
             );
 
             if ($status == Password::RESET_LINK_SENT) {
+                if (request()->expectsJson() || request()->ajax()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => "Un email de réinitialisation de mot de passe a été envoyé à {$user->email}."
+                    ]);
+                }
                 return redirect()->route('users.index')
                     ->with('success', "Un email de réinitialisation de mot de passe a été envoyé à {$user->email}.");
             } else {
+                if (request()->expectsJson() || request()->ajax()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Erreur lors de l'envoi de l'email de réinitialisation."
+                    ], 400);
+                }
                 return redirect()->route('users.index')
                     ->with('error', "Erreur lors de l'envoi de l'email de réinitialisation.");
             }
         } catch (\Exception $e) {
             \Log::error('Erreur envoi email réinitialisation mot de passe: ' . $e->getMessage());
+            if (request()->expectsJson() || request()->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Erreur lors de l'envoi de l'email : " . $e->getMessage()
+                ], 500);
+            }
             return redirect()->route('users.index')
                 ->with('error', "Erreur lors de l'envoi de l'email : " . $e->getMessage());
         }
