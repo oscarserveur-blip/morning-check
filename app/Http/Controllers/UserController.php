@@ -142,9 +142,13 @@ class UserController extends Controller
     public function sendPasswordReset(User $user)
     {
         try {
+            \Log::info('Tentative d\'envoi de réinitialisation de mot de passe pour: ' . $user->email);
+            
             $status = Password::sendResetLink(
                 ['email' => $user->email]
             );
+
+            \Log::info('Statut de l\'envoi: ' . $status);
 
             if ($status == Password::RESET_LINK_SENT) {
                 if (request()->expectsJson() || request()->ajax()) {
@@ -156,10 +160,11 @@ class UserController extends Controller
                 return redirect()->route('users.index')
                     ->with('success', "Un email de réinitialisation de mot de passe a été envoyé à {$user->email}.");
             } else {
+                \Log::warning('Échec de l\'envoi de réinitialisation. Statut: ' . $status);
                 if (request()->expectsJson() || request()->ajax()) {
                     return response()->json([
                         'success' => false,
-                        'message' => "Erreur lors de l'envoi de l'email de réinitialisation."
+                        'message' => "Erreur lors de l'envoi de l'email de réinitialisation. Statut: " . $status
                     ], 400);
                 }
                 return redirect()->route('users.index')
@@ -167,14 +172,20 @@ class UserController extends Controller
             }
         } catch (\Exception $e) {
             \Log::error('Erreur envoi email réinitialisation mot de passe: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            $errorMessage = config('app.debug') 
+                ? "Erreur lors de l'envoi de l'email : " . $e->getMessage()
+                : "Une erreur est survenue lors de l'envoi de l'email. Veuillez réessayer plus tard.";
+            
             if (request()->expectsJson() || request()->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Erreur lors de l'envoi de l'email : " . $e->getMessage()
+                    'message' => $errorMessage
                 ], 500);
             }
             return redirect()->route('users.index')
-                ->with('error', "Erreur lors de l'envoi de l'email : " . $e->getMessage());
+                ->with('error', $errorMessage);
         }
     }
 } 
