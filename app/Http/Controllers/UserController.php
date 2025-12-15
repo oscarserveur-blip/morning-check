@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Client;
 use App\Mail\UserPasswordMail;
+use App\Mail\ResetPasswordMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -144,32 +145,32 @@ class UserController extends Controller
         try {
             \Log::info('Tentative d\'envoi de réinitialisation de mot de passe pour: ' . $user->email);
             
-            $status = Password::sendResetLink(
-                ['email' => $user->email]
-            );
+            // Utiliser le broker de mot de passe pour créer le token
+            $broker = Password::broker();
+            $token = $broker->createToken($user);
+            
+            // Construire l'URL de réinitialisation
+            $url = url(route('password.reset', [
+                'token' => $token,
+                'email' => $user->email,
+            ], false));
 
-            \Log::info('Statut de l\'envoi: ' . $status);
+            $count = config('auth.passwords.'.config('auth.defaults.passwords').'.expire', 60);
 
-            if ($status == Password::RESET_LINK_SENT) {
-                if (request()->expectsJson() || request()->ajax()) {
-                    return response()->json([
-                        'success' => true,
-                        'message' => "Un email de réinitialisation de mot de passe a été envoyé à {$user->email}."
-                    ]);
-                }
-                return redirect()->route('users.index')
-                    ->with('success', "Un email de réinitialisation de mot de passe a été envoyé à {$user->email}.");
-            } else {
-                \Log::warning('Échec de l\'envoi de réinitialisation. Statut: ' . $status);
-                if (request()->expectsJson() || request()->ajax()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Erreur lors de l'envoi de l'email de réinitialisation. Statut: " . $status
-                    ], 400);
-                }
-                return redirect()->route('users.index')
-                    ->with('error', "Erreur lors de l'envoi de l'email de réinitialisation.");
+            // Envoyer directement le Mailable
+            Mail::to($user->email)->send(new ResetPasswordMail($url, $user, $count));
+
+            \Log::info('Email de réinitialisation envoyé avec succès à: ' . $user->email);
+
+            if (request()->expectsJson() || request()->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Un email de réinitialisation de mot de passe a été envoyé à {$user->email}."
+                ]);
             }
+            return redirect()->route('users.index')
+                ->with('success', "Un email de réinitialisation de mot de passe a été envoyé à {$user->email}.");
+                
         } catch (\Exception $e) {
             \Log::error('Erreur envoi email réinitialisation mot de passe: ' . $e->getMessage());
             \Log::error('Stack trace: ' . $e->getTraceAsString());
