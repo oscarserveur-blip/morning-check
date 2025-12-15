@@ -87,6 +87,7 @@ Route::middleware(['auth', 'force.password.change'])->group(function () {
 Route::middleware(['auth', 'force.password.change'])->group(function () {
     Route::get('/test', [App\Http\Controllers\TestController::class, 'test'])->name('test');
     Route::get('/test-user', [App\Http\Controllers\TestController::class, 'testUser'])->name('test.user');
+    Route::post('/users/{user}/send-password-reset', [App\Http\Controllers\UserController::class, 'sendPasswordReset'])->name('users.send-password-reset');
     Route::resource('users', App\Http\Controllers\UserController::class);
 });
 

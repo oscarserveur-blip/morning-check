@@ -8,6 +8,7 @@ use App\Mail\UserPasswordMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 
 class UserController extends Controller
@@ -133,5 +134,29 @@ class UserController extends Controller
             ->get();
 
         return view('users.show', compact('user', 'stats', 'recentChecks'));
+    }
+
+    /**
+     * Envoie un email de réinitialisation de mot de passe à l'utilisateur
+     */
+    public function sendPasswordReset(User $user)
+    {
+        try {
+            $status = Password::sendResetLink(
+                ['email' => $user->email]
+            );
+
+            if ($status == Password::RESET_LINK_SENT) {
+                return redirect()->route('users.index')
+                    ->with('success', "Un email de réinitialisation de mot de passe a été envoyé à {$user->email}.");
+            } else {
+                return redirect()->route('users.index')
+                    ->with('error', "Erreur lors de l'envoi de l'email de réinitialisation.");
+            }
+        } catch (\Exception $e) {
+            \Log::error('Erreur envoi email réinitialisation mot de passe: ' . $e->getMessage());
+            return redirect()->route('users.index')
+                ->with('error', "Erreur lors de l'envoi de l'email : " . $e->getMessage());
+        }
     }
 } 

@@ -27,6 +27,14 @@
                     </div>
                 @endif
 
+                @if(session('error'))
+                    <div class="alert alert-danger alert-dismissible fade show m-3" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        {{ session('error') }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                @endif
+
                 <div class="card-body">
                     <div class="table-responsive">
                         <table class="table table-hover align-middle">
@@ -102,6 +110,14 @@
                                                 <a href="{{ route('users.edit', $user) }}" class="btn btn-sm btn-outline-primary" title="Éditer">
                                                     <i class="bi bi-pencil"></i>
                                                 </a>
+                                                <form action="{{ route('users.send-password-reset', $user) }}" method="POST" style="display:inline-block;">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-outline-warning" 
+                                                            onclick="return confirm('Envoyer un email de réinitialisation de mot de passe à {{ $user->email }} ?')" 
+                                                            title="Envoyer un email de réinitialisation">
+                                                        <i class="bi bi-key"></i>
+                                                    </button>
+                                                </form>
                                                 @if($user->id !== auth()->id())
                                                 <form action="{{ route('users.destroy', $user) }}" method="POST" style="display:inline-block;">
                                                     @csrf
