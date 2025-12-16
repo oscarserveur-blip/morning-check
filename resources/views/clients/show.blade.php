@@ -144,12 +144,12 @@
                     <div class="mb-3">
                         <label for="category_pk" class="form-label">Catégorie parente</label>
                         <select class="form-select" id="category_pk" name="category_pk">
-                            <option value="">Aucune catégorie parente</option>
-                            @foreach($client->categories as $parentCategory)
+                            <option value="">Aucune catégorie parente (catégorie principale)</option>
+                            @foreach($client->categories->whereNull('category_pk') as $parentCategory)
                                 <option value="{{ $parentCategory->id }}">{{ $parentCategory->title }}</option>
                             @endforeach
                         </select>
-                        <small class="form-text text-muted">Laissez vide si cette catégorie n'a pas de parent</small>
+                        <small class="form-text text-muted">Sélectionnez une catégorie principale (sans parent) pour créer une sous-catégorie. Exemple : "Abonnements" pour créer "Licences"</small>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -180,12 +180,12 @@
                     <div class="mb-3">
                         <label for="edit_category_pk" class="form-label">Catégorie parente</label>
                         <select class="form-select" id="edit_category_pk" name="category_pk">
-                            <option value="">Aucune catégorie parente</option>
-                            @foreach($client->categories as $parentCategory)
+                            <option value="">Aucune catégorie parente (catégorie principale)</option>
+                            @foreach($client->categories->whereNull('category_pk') as $parentCategory)
                                 <option value="{{ $parentCategory->id }}">{{ $parentCategory->title }}</option>
                             @endforeach
                         </select>
-                        <small class="form-text text-muted">Laissez vide si cette catégorie n'a pas de parent</small>
+                        <small class="form-text text-muted">Sélectionnez une catégorie principale (sans parent) pour créer une sous-catégorie</small>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -391,7 +391,22 @@ function editCategory(categoryId) {
             const form = document.getElementById('editCategoryForm');
             form.action = `/categories/${categoryId}`;
             document.getElementById('edit_title').value = data.title;
-            document.getElementById('edit_category_pk').value = data.category_pk;
+            
+            // Mettre à jour le select pour n'afficher que les catégories parent (sans parent)
+            const select = document.getElementById('edit_category_pk');
+            const currentCategoryId = categoryId;
+            
+            // Filtrer les options pour ne garder que les catégories parent (sans parent)
+            const options = Array.from(select.options);
+            options.forEach(option => {
+                if (option.value && option.value == currentCategoryId) {
+                    option.remove();
+                }
+            });
+            
+            // Sélectionner la valeur actuelle
+            select.value = data.category_pk || '';
+            
             new bootstrap.Modal(document.getElementById('editCategoryModal')).show();
         });
 }
@@ -815,13 +830,15 @@ function resetServiceRow(serviceCheckId) {
 function saveAllServices(checkId) {
     const serviceRows = document.querySelectorAll('tr[data-service-check-id]');
     const serviceChecks = [];
+    let validationError = null;
 
-    // Collecter toutes les données
-    serviceRows.forEach(row => {
+    // Collecter toutes les données et valider
+    for (const row of serviceRows) {
         const serviceCheckId = row.getAttribute('data-service-check-id');
         const status = row.querySelector('.status-select').value;
         const comment = row.querySelector('.comment-input').value;
         const intervenantId = row.querySelector('.intervenant-select').value;
+        const serviceName = row.querySelector('td:first-child strong')?.textContent || 'Service';
 
         // Mapping JS -> DB
         let statutBD = status;
@@ -834,41 +851,69 @@ function saveAllServices(checkId) {
         // Vérifier si les champs requis sont remplis quand le statut est NOK
         if (statutBD === 'error') {
             if (!comment.trim()) {
-                showToast('Erreur', `Le commentaire est obligatoire pour le service "${row.querySelector('td:first-child strong').textContent}"`, 'error');
+                validationError = `Le commentaire est obligatoire pour le service "${serviceName}"`;
                 row.querySelector('.comment-input').focus();
-                return;
+                row.querySelector('.comment-input').classList.add('is-invalid');
+                break;
             }
             if (!intervenantId) {
-                showToast('Erreur', `L'intervenant est obligatoire pour le service "${row.querySelector('td:first-child strong').textContent}"`, 'error');
+                validationError = `L'intervenant est obligatoire pour le service "${serviceName}"`;
                 row.querySelector('.intervenant-select').focus();
-                return;
+                row.querySelector('.intervenant-select').classList.add('is-invalid');
+                break;
             }
         }
+
+        // Retirer les classes d'erreur si tout est valide
+        row.querySelector('.comment-input')?.classList.remove('is-invalid');
+        row.querySelector('.intervenant-select')?.classList.remove('is-invalid');
 
         serviceChecks.push({
             id: serviceCheckId,
             status: statutBD,
-            observations: statutBD === 'error' ? comment : '',
+            observations: statutBD === 'error' ? comment.trim() : (comment.trim() || null),
             intervenant_id: statutBD === 'error' ? intervenantId : null
         });
-    });
+    }
+
+    // Si validation échouée, arrêter ici
+    if (validationError) {
+        showToast('Erreur', validationError, 'error');
+        return;
+    }
+
+    // Désactiver le bouton pendant l'envoi
+    const saveBtn = document.getElementById('saveAllServicesBtn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enregistrement...';
+    }
 
     // Envoyer toutes les données
     fetch(`/checks/${checkId}/service-checks`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json'
         },
         body: JSON.stringify({ service_checks: serviceChecks })
     })
-    .then(response => response.json())
+    .then(async response => {
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Erreur lors de la sauvegarde');
+        }
+        return data;
+    })
     .then(data => {
         if (data.success) {
             showToast('Succès', 'Tous les services ont été enregistrés avec succès', 'success');
             // Fermer le modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('viewCheckModal'));
-            modal.hide();
+            if (modal) {
+                modal.hide();
+            }
             // Rafraîchir la liste des checks sans recharger la page
             if (typeof refreshChecksList === 'function') {
                 setTimeout(() => { refreshChecksList(); }, 500);
@@ -879,15 +924,16 @@ function saveAllServices(checkId) {
             showToast('Erreur', message, 'error');
         }
     })
-    .catch(async error => {
-        let message = 'Une erreur est survenue lors de la sauvegarde';
-        if (error && error.response) {
-            try {
-                const data = await error.response.json();
-                if (data && data.message) message = data.message;
-            } catch (e) {}
+    .catch(error => {
+        console.error('Erreur sauvegarde:', error);
+        showToast('Erreur', error.message || 'Une erreur est survenue lors de la sauvegarde', 'error');
+    })
+    .finally(() => {
+        // Réactiver le bouton
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="bi bi-save me-2"></i>Enregistrer tout';
         }
-        showToast('Erreur', message, 'error');
     });
 }
 

@@ -222,13 +222,37 @@ class ServiceCheckController extends Controller
         \Log::info('Check ID:', ['id' => $check->id]);
         \Log::info('Données reçues:', $request->all());
 
-        $request->validate([
+        $validated = $request->validate([
             'service_checks' => 'required|array',
             'service_checks.*.id' => 'required|exists:service_checks,id',
             'service_checks.*.status' => 'required|in:pending,in_progress,success,warning,error',
             'service_checks.*.observations' => 'nullable|string|max:1000',
             'service_checks.*.intervenant_id' => 'nullable|exists:users,id'
+        ], [
+            'service_checks.required' => 'Aucun service check fourni.',
+            'service_checks.*.id.required' => 'L\'ID du service check est requis.',
+            'service_checks.*.id.exists' => 'Le service check spécifié n\'existe pas.',
+            'service_checks.*.status.required' => 'Le statut est requis pour chaque service.',
+            'service_checks.*.status.in' => 'Le statut doit être : pending, in_progress, success, warning ou error.',
         ]);
+
+        // Validation supplémentaire : si statut est error, observations et intervenant sont requis
+        foreach ($validated['service_checks'] as $index => $serviceCheckData) {
+            if ($serviceCheckData['status'] === 'error') {
+                if (empty($serviceCheckData['observations']) || !trim($serviceCheckData['observations'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Le commentaire est obligatoire pour les services avec le statut NOK (service check #{$serviceCheckData['id']})."
+                    ], 422);
+                }
+                if (empty($serviceCheckData['intervenant_id'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "L'intervenant est obligatoire pour les services avec le statut NOK (service check #{$serviceCheckData['id']})."
+                    ], 422);
+                }
+            }
+        }
 
         try {
             foreach ($request->service_checks as $serviceCheckData) {

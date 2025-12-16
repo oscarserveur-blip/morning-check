@@ -13,11 +13,13 @@ class ServiceCheck extends Model
         'statut', 
         'observations',
         'notes',
-        'intervenant'
+        'intervenant',
+        'expiration_date'
     ];
 
     protected $casts = [
         'statut' => 'string',
+        'expiration_date' => 'date',
     ];
 
     // Définir les valeurs de statut acceptées

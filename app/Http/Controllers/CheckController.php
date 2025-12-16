@@ -263,12 +263,28 @@ class CheckController extends Controller
         $template = $check->client->template;
         $client = $check->client;
 
-        // Préparer les données pour l'export
+        // Préparer les données pour l'export avec les catégories parent (charger récursivement)
+        $serviceChecks = $check->serviceChecks()->with(['service.category' => function($query) {
+            $query->with('parent');
+        }])->get();
+        
+        // Charger récursivement tous les parents
+        foreach ($serviceChecks as $serviceCheck) {
+            if ($serviceCheck->service && $serviceCheck->service->category) {
+                $category = $serviceCheck->service->category;
+                $parent = $category->parent;
+                while ($parent) {
+                    $parent->load('parent');
+                    $parent = $parent->parent;
+                }
+            }
+        }
+        
         $data = [
             'check' => $check,
             'client' => $client,
             'template' => $template,
-            'serviceChecks' => $check->serviceChecks()->with('service.category')->get(),
+            'serviceChecks' => $serviceChecks,
             'exportDate' => now()->format('d/m/Y H:i'),
             'createdBy' => $check->creator->name ?? 'N/A'
         ];
@@ -358,47 +374,91 @@ class CheckController extends Controller
         }
 
         $row = 5;
-        // Section config (ordre, couleurs)
+        // Section config (ordre, couleurs) - Groupé par catégories parent
         $sections = $template->section_config['sections'] ?? [];
+        
+        // Obtenir la configuration des colonnes d'export
+        $exportColumns = $this->getExportColumns($template, $client);
+        
+        // Grouper par catégorie parent
         $categories = $serviceChecks->groupBy(function($sc) {
-            return $sc->service->category->title ?? 'Autres';
+            $category = $sc->service->category ?? null;
+            if ($category && $category->parent) {
+                return $category->parent->title;
+            }
+            return $category ? $category->title : 'Autres';
         });
+        
         // Ordonner les sections si config
         $orderedSections = collect($sections)->sortBy('order')->pluck('name')->toArray();
         $catOrder = array_merge($orderedSections, array_diff($categories->keys()->toArray(), $orderedSections));
+        
+        // Calculer le nombre de colonnes nécessaires
+        $columnCount = count($exportColumns);
+        $lastColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($columnCount);
+        
         foreach ($catOrder as $catTitle) {
             if (!$categories->has($catTitle)) continue;
             $sectionColor = collect($sections)->firstWhere('name', $catTitle)['color'] ?? '444444';
-            $sheet->mergeCells("A$row:I$row");
+            $sheet->mergeCells("A$row:{$lastColumn}$row");
             $sheet->setCellValue("A$row", $catTitle);
             $sheet->getStyle("A$row")->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
             $sheet->getStyle("A$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB(ltrim($sectionColor, '#'));
             $row++;
-            $sheet->setCellValue("A$row", 'Description');
-            $sheet->setCellValue("I$row", 'Etat');
-            $sheet->getStyle("A$row:I$row")->getFont()->setBold(true);
-            $sheet->getStyle("A$row:I$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('DDDDDD');
-            $sheet->getStyle("A$row:I$row")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+            
+            // En-têtes de colonnes selon la configuration
+            $colIndex = 1;
+            foreach ($exportColumns as $column) {
+                $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+                $sheet->setCellValue("{$colLetter}$row", $column['label']);
+                $colIndex++;
+            }
+            
+            $sheet->getStyle("A$row:{$lastColumn}$row")->getFont()->setBold(true);
+            $sheet->getStyle("A$row:{$lastColumn}$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('DDDDDD');
+            $sheet->getStyle("A$row:{$lastColumn}$row")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
             $row++;
+            
             foreach ($categories[$catTitle] as $sc) {
-                $sheet->setCellValue("A$row", $sc->service->title);
-                $status = $sc->statut === 'success' ? 'OK' : ($sc->statut === 'error' ? 'NOK' : strtoupper($sc->statut));
-                $sheet->setCellValue("I$row", $status);
-                // Couleur de fond selon le statut (configurable)
-                $okColor = $config['ok_color'] ?? '00B050';
-                $nokColor = $config['nok_color'] ?? 'FF0000';
-                $warningColor = $config['warning_color'] ?? 'FFC000';
-                if ($sc->statut === 'success') {
-                    $sheet->getStyle("I$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB($okColor);
-                    $sheet->getStyle("I$row")->getFont()->getColor()->setRGB('FFFFFF');
-                } elseif ($sc->statut === 'error') {
-                    $sheet->getStyle("I$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB($nokColor);
-                    $sheet->getStyle("I$row")->getFont()->getColor()->setRGB('FFFFFF');
-                } elseif ($sc->statut === 'warning') {
-                    $sheet->getStyle("I$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB($warningColor);
-                    $sheet->getStyle("I$row")->getFont()->getColor()->setRGB('000000');
+                $category = $sc->service->category ?? null;
+                $colIndex = 1;
+                foreach ($exportColumns as $column) {
+                    $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+                    $value = $this->getColumnValue($sc, $column['field'], $category);
+                    
+                    $sheet->setCellValue("{$colLetter}$row", $value);
+                    
+                    // Appliquer les styles spécifiques selon le type de colonne
+                    if ($column['field'] === 'expiration_date' && $sc->expiration_date) {
+                        $daysUntilExpiration = now()->diffInDays($sc->expiration_date, false);
+                        if ($daysUntilExpiration < 0) {
+                            $sheet->getStyle("{$colLetter}$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFEBEE');
+                            $sheet->getStyle("{$colLetter}$row")->getFont()->setBold(true)->getColor()->setRGB('C62828');
+                        } elseif ($daysUntilExpiration <= 30) {
+                            $sheet->getStyle("{$colLetter}$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFF3E0');
+                            $sheet->getStyle("{$colLetter}$row")->getFont()->getColor()->setRGB('E65100');
+                        }
+                    } elseif ($column['field'] === 'statut') {
+                        // Couleur de fond selon le statut
+                        $okColor = $config['ok_color'] ?? '00B050';
+                        $nokColor = $config['nok_color'] ?? 'FF0000';
+                        $warningColor = $config['warning_color'] ?? 'FFC000';
+                        if ($sc->statut === 'success') {
+                            $sheet->getStyle("{$colLetter}$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB($okColor);
+                            $sheet->getStyle("{$colLetter}$row")->getFont()->getColor()->setRGB('FFFFFF');
+                        } elseif ($sc->statut === 'error') {
+                            $sheet->getStyle("{$colLetter}$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB($nokColor);
+                            $sheet->getStyle("{$colLetter}$row")->getFont()->getColor()->setRGB('FFFFFF');
+                        } elseif ($sc->statut === 'warning') {
+                            $sheet->getStyle("{$colLetter}$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB($warningColor);
+                            $sheet->getStyle("{$colLetter}$row")->getFont()->getColor()->setRGB('000000');
+                        }
+                    }
+                    
+                    $colIndex++;
                 }
-                $sheet->getStyle("A$row:I$row")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+                
+                $sheet->getStyle("A$row:{$lastColumn}$row")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
                 $row++;
             }
             $row++;
@@ -408,18 +468,18 @@ class CheckController extends Controller
         $footerStartRow = $row;
         
         // Ligne de séparation
-        $sheet->mergeCells("A$row:I$row");
-        $sheet->getStyle("A$row:I$row")->getBorders()->getTop()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->mergeCells("A$row:{$lastColumn}$row");
+        $sheet->getStyle("A$row:{$lastColumn}$row")->getBorders()->getTop()->setBorderStyle(Border::BORDER_THIN);
         $row++;
         
         // Informations du footer
-        $sheet->mergeCells("A$row:I$row");
+        $sheet->mergeCells("A$row:{$lastColumn}$row");
         $sheet->setCellValue("A$row", "Document généré le " . now()->locale('fr')->isoFormat('dddd D MMMM YYYY [à] HH:mm'));
         $sheet->getStyle("A$row")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
         $row++;
         
         if ($template->footer_text) {
-            $sheet->mergeCells("A$row:I$row");
+            $sheet->mergeCells("A$row:{$lastColumn}$row");
             $sheet->setCellValue("A$row", $template->footer_text);
             $footerColor = $template->footer_color ?? 'C00000';
             $sheet->getStyle("A$row")->getFont()->setBold(true)->getColor()->setRGB(ltrim($footerColor, '#'));
@@ -428,16 +488,18 @@ class CheckController extends Controller
         }
         
         // Créé par
-        $sheet->mergeCells("A$row:I$row");
+        $sheet->mergeCells("A$row:{$lastColumn}$row");
         $sheet->setCellValue("A$row", "Créé par : " . ($data['createdBy'] ?? 'N/A'));
         $sheet->getStyle("A$row")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
         
         // Style global du footer
-        $sheet->getStyle("A$footerStartRow:I$row")->getFont()->setSize(10);
+        $sheet->getStyle("A$footerStartRow:{$lastColumn}$row")->getFont()->setSize(10);
         
-        // Largeur automatique
-        foreach (range('A', 'I') as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
+        // Largeur automatique pour toutes les colonnes utilisées
+        $exportColumns = $this->getExportColumns($template, $client);
+        for ($i = 1; $i <= count($exportColumns); $i++) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i);
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
         }
         
         // Générer le fichier Excel
@@ -906,19 +968,39 @@ private function generatePngImage($data, $forDownload = false)
         $csv[] = ['Date d\'export:', $data['exportDate']];
         $csv[] = []; // Ligne vide
         
-        // Services vérifiés
+        // Services vérifiés - Groupés par catégories parent
         if ($data['serviceChecks']->count() > 0) {
             $csv[] = ['Services vérifiés'];
-            $csv[] = ['Service', 'Catégorie', 'Statut', 'Notes', 'Date'];
             
-            foreach ($data['serviceChecks'] as $serviceCheck) {
-                $csv[] = [
-                    $serviceCheck->service->title ?? 'N/A',
-                    $serviceCheck->service->category->title ?? 'N/A',
-                    $this->getServiceStatusLabel($serviceCheck->status),
-                    $serviceCheck->notes ?? '',
-                    $serviceCheck->created_at->format('d/m/Y H:i')
-                ];
+            // Obtenir la configuration des colonnes
+            $exportColumns = $this->getExportColumns($template, $client);
+            $headers = array_column($exportColumns, 'label');
+            $csv[] = $headers;
+            
+            // Grouper par catégorie parent
+            $groupedByParent = $data['serviceChecks']->groupBy(function ($serviceCheck) {
+                $category = $serviceCheck->service->category ?? null;
+                if ($category && $category->parent) {
+                    return $category->parent->title;
+                }
+                return $category ? $category->title : 'Autres';
+            });
+            
+            foreach ($groupedByParent as $parentTitle => $serviceChecks) {
+                // En-tête de section pour la catégorie parent
+                $csv[] = []; // Ligne vide
+                $csv[] = [$parentTitle]; // Titre de la catégorie parent
+                
+                foreach ($serviceChecks as $serviceCheck) {
+                    $category = $serviceCheck->service->category ?? null;
+                    $row = [];
+                    
+                    foreach ($exportColumns as $column) {
+                        $row[] = $this->getColumnValue($serviceCheck, $column['field'], $category);
+                    }
+                    
+                    $csv[] = $row;
+                }
             }
         } else {
             $csv[] = ['Aucun service vérifié'];
@@ -988,33 +1070,66 @@ private function generatePngImage($data, $forDownload = false)
             <tr><td>Date d\'export:</td><td>' . $data['exportDate'] . '</td></tr>
         </table>';
         
-        // Services vérifiés
+        // Services vérifiés - Groupés par catégories parent
         if ($data['serviceChecks']->count() > 0) {
-            $html .= '<h3>Services vérifiés</h3>
-            <table class="services-table">
-                <thead>
-                    <tr>
-                        <th>Service</th>
-                        <th>Catégorie</th>
-                        <th>Statut</th>
-                        <th>Notes</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>';
+            $html .= '<h3>Services vérifiés</h3>';
             
-            foreach ($data['serviceChecks'] as $serviceCheck) {
-                $statusClass = $this->getServiceStatusClass($serviceCheck->status);
-                $html .= '<tr>
-                    <td>' . htmlspecialchars($serviceCheck->service->title ?? 'N/A') . '</td>
-                    <td>' . htmlspecialchars($serviceCheck->service->category->title ?? 'N/A') . '</td>
-                    <td class="' . $statusClass . '">' . $this->getServiceStatusLabel($serviceCheck->status) . '</td>
-                    <td>' . htmlspecialchars($serviceCheck->notes ?? '') . '</td>
-                    <td>' . $serviceCheck->created_at->format('d/m/Y H:i') . '</td>
-                </tr>';
+            // Obtenir la configuration des colonnes
+            $exportColumns = $this->getExportColumns($template, $client);
+            
+            // Grouper par catégorie parent
+            $groupedByParent = $data['serviceChecks']->groupBy(function ($serviceCheck) {
+                $category = $serviceCheck->service->category ?? null;
+                if ($category && $category->parent) {
+                    return $category->parent->title;
+                }
+                return $category ? $category->title : 'Autres';
+            });
+            
+            foreach ($groupedByParent as $parentTitle => $serviceChecks) {
+                $html .= '<h4 style="background-color: #f5f5f5; padding: 10px; margin-top: 20px;">' . htmlspecialchars($parentTitle) . '</h4>';
+                $html .= '<table class="services-table">
+                    <thead>
+                        <tr>';
+                
+                // En-têtes de colonnes selon la configuration
+                foreach ($exportColumns as $column) {
+                    $html .= '<th>' . htmlspecialchars($column['label']) . '</th>';
+                }
+                
+                $html .= '</tr>
+                    </thead>
+                    <tbody>';
+                
+                foreach ($serviceChecks as $serviceCheck) {
+                    $category = $serviceCheck->service->category ?? null;
+                    $html .= '<tr>';
+                    
+                    foreach ($exportColumns as $column) {
+                        $value = $this->getColumnValue($serviceCheck, $column['field'], $category);
+                        $cellStyle = '';
+                        $cellClass = '';
+                        
+                        // Styles spécifiques selon le type de colonne
+                        if ($column['field'] === 'expiration_date' && $serviceCheck->expiration_date) {
+                            $daysUntilExpiration = now()->diffInDays($serviceCheck->expiration_date, false);
+                            if ($daysUntilExpiration < 0) {
+                                $cellStyle = 'background-color: #ffebee; color: #c62828; font-weight: bold;';
+                            } elseif ($daysUntilExpiration <= 30) {
+                                $cellStyle = 'background-color: #fff3e0; color: #e65100;';
+                            }
+                        } elseif ($column['field'] === 'statut') {
+                            $cellClass = $this->getServiceStatusClass($serviceCheck->statut ?? 'pending');
+                        }
+                        
+                        $html .= '<td class="' . $cellClass . '" style="' . $cellStyle . '">' . htmlspecialchars($value) . '</td>';
+                    }
+                    
+                    $html .= '</tr>';
+                }
+                
+                $html .= '</tbody></table>';
             }
-            
-            $html .= '</tbody></table>';
         } else {
             $html .= '<p>Aucun service vérifié</p>';
         }
@@ -1076,6 +1191,77 @@ private function generatePngImage($data, $forDownload = false)
             'error' => 'status-error',
             default => ''
         };
+    }
+
+    /**
+     * Get export columns configuration for a template/client
+     * Returns default columns if not configured
+     */
+    private function getExportColumns($template, $client)
+    {
+        // Si une configuration existe dans le template, l'utiliser
+        if ($template->export_columns && is_array($template->export_columns) && !empty($template->export_columns)) {
+            return $template->export_columns;
+        }
+
+        // Configuration par défaut pour tous les clients (nouveau format)
+        $defaultColumns = [
+            ['field' => 'description', 'label' => 'Description'],
+            ['field' => 'category_full_path', 'label' => 'Catégorie complète'],
+            ['field' => 'statut', 'label' => 'Etat'],
+            ['field' => 'expiration_date', 'label' => 'Date d\'expiration'],
+            ['field' => 'notes', 'label' => 'Notes'],
+        ];
+
+        // Configuration spécifique pour Chalons (ancien format simple)
+        if (stripos($client->label, 'chalons') !== false || stripos($client->label, 'châlons') !== false) {
+            return [
+                ['field' => 'description', 'label' => 'Description'],
+                ['field' => 'statut', 'label' => 'Etat'],
+            ];
+        }
+
+        return $defaultColumns;
+    }
+
+    /**
+     * Get the value for a specific column field
+     */
+    private function getColumnValue($serviceCheck, $field, $category = null)
+    {
+        switch ($field) {
+            case 'description':
+                return $serviceCheck->service->title ?? 'N/A';
+            
+            case 'category_full_path':
+                if ($category) {
+                    return $category->full_path;
+                }
+                $cat = $serviceCheck->service->category ?? null;
+                return $cat ? $cat->full_path : 'N/A';
+            
+            case 'statut':
+                $status = $serviceCheck->statut ?? 'pending';
+                return $status === 'success' ? 'OK' : ($status === 'error' ? 'NOK' : strtoupper($status));
+            
+            case 'expiration_date':
+                return $serviceCheck->expiration_date ? $serviceCheck->expiration_date->format('d/m/Y') : 'N/A';
+            
+            case 'notes':
+                return $serviceCheck->notes ?? '';
+            
+            case 'observations':
+                return $serviceCheck->observations ?? '';
+            
+            case 'intervenant':
+                return $serviceCheck->intervenantUser->name ?? 'N/A';
+            
+            case 'created_at':
+                return $serviceCheck->created_at->format('d/m/Y H:i');
+            
+            default:
+                return 'N/A';
+        }
     }
 
     public function autoCheck(\App\Models\Client $client)
@@ -1469,7 +1655,7 @@ private function generatePngImage($data, $forDownload = false)
         table { width: 100%; border-collapse: collapse; margin-top: 0; border-spacing: 0; }
         table th { background-color: #f5f5f5; padding: 12px 15px; text-align: left; border: 1px solid #ddd; font-weight: bold; vertical-align: middle; }
         table td { padding: 12px 15px; border: 1px solid #ddd; word-wrap: break-word; vertical-align: top; }
-        /* Largeurs fixes en pourcentage pour toutes les colonnes : Service (50%), État (25%), Observations (25%) */
+        /* Largeurs fixes en pourcentage pour toutes les colonnes : Description (50%), État (25%), Observations (25%) */
         table th:first-child, table td:first-child { width: 50%; text-align: left; }
         table th:nth-child(2), table td:nth-child(2) { width: 25%; text-align: center; }
         table th:nth-child(3), table td:nth-child(3) { width: 25%; text-align: left; }
@@ -1493,7 +1679,7 @@ private function generatePngImage($data, $forDownload = false)
                 <table>
                     <thead>
                         <tr>
-                            <th style="text-align: left;">Service</th>
+                            <th style="text-align: left;">Description</th>
                             <th style="text-align: center;">État</th>
                             <th style="text-align: left;">Observations</th>
                         </tr>

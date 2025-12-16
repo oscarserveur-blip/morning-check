@@ -17,12 +17,12 @@
                     <div class="mb-3">
                         <label for="category_pk" class="form-label">Catégorie parente</label>
                         <select class="form-select" id="category_pk" name="category_pk">
-                            <option value="">Aucune catégorie parente</option>
-                            @foreach($client->categories as $parentCategory)
+                            <option value="">Aucune catégorie parente (catégorie principale)</option>
+                            @foreach($client->categories->whereNull('category_pk') as $parentCategory)
                                 <option value="{{ $parentCategory->id }}">{{ $parentCategory->title }}</option>
                             @endforeach
                         </select>
-                        <small class="form-text text-muted">Laissez vide si cette catégorie n'a pas de parent</small>
+                        <small class="form-text text-muted">Sélectionnez une catégorie principale (sans parent) pour créer une sous-catégorie. Exemple : "Abonnements" pour créer "Licences"</small>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -53,12 +53,17 @@
                     <div class="mb-3">
                         <label for="edit_category_pk" class="form-label">Catégorie parente</label>
                         <select class="form-select" id="edit_category_pk" name="category_pk">
-                            <option value="">Aucune catégorie parente</option>
-                            @foreach($client->categories as $parentCategory)
+                            <option value="">Aucune catégorie parente (catégorie principale)</option>
+                            @php
+                                $currentCategoryId = isset($category) ? $category->id : null;
+                                $excludedIds = isset($category) ? \App\Models\Category::where('category_pk', $category->id)->pluck('id')->toArray() : [];
+                                $excludedIds[] = $currentCategoryId;
+                            @endphp
+                            @foreach($client->categories->whereNull('category_pk')->where('id', '!=', $currentCategoryId) as $parentCategory)
                                 <option value="{{ $parentCategory->id }}">{{ $parentCategory->title }}</option>
                             @endforeach
                         </select>
-                        <small class="form-text text-muted">Laissez vide si cette catégorie n'a pas de parent</small>
+                        <small class="form-text text-muted">Sélectionnez une catégorie principale (sans parent) pour créer une sous-catégorie</small>
                     </div>
                 </div>
                 <div class="modal-footer">

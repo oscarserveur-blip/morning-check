@@ -17,12 +17,14 @@ class Template extends Model
         'section_config',
         'footer_text',
         'footer_color',
-        'config'
+        'config',
+        'export_columns'
     ];
 
     protected $casts = [
         'config' => 'array',
         'section_config' => 'array',
+        'export_columns' => 'array',
     ];
 
     public function clients(): BelongsToMany

@@ -12,32 +12,76 @@
             </div>
             <div class="card-body p-0">
                 <div class="list-group list-group-flush" id="categoriesList">
-                    @foreach($client->categories as $category)
+                    @php
+                        // Séparer les catégories parent et enfants
+                        $parentCategories = $client->categories->whereNull('category_pk');
+                        $childCategories = $client->categories->whereNotNull('category_pk');
+                    @endphp
+                    
+                    @foreach($parentCategories as $parentCategory)
                         <a href="#" class="list-group-item list-group-item-action category-item" 
-                           data-category-id="{{ $category->id }}"
-                           onclick="loadServices({{ $category->id }})">
+                           data-category-id="{{ $parentCategory->id }}"
+                           onclick="loadServices({{ $parentCategory->id }})"
+                           style="background-color: #f8f9fa; font-weight: 600;">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <span>{{ $category->title }}</span>
-                                    @if($category->parent)
-                                        <small class="text-muted d-block">Parent: {{ $category->parent->title }}</small>
-                                    @else
-                                        <small class="text-muted d-block">Aucun parent</small>
+                                    <span><i class="bi bi-folder-fill me-2"></i>{{ $parentCategory->title }}</span>
+                                    <small class="text-muted d-block">Catégorie principale</small>
+                                    @php
+                                        $childrenCount = $client->categories->where('category_pk', $parentCategory->id)->count();
+                                    @endphp
+                                    @if($childrenCount > 0)
+                                        <small class="text-info d-block">
+                                            <i class="bi bi-arrow-down-right"></i> {{ $childrenCount }} sous-catégorie(s)
+                                        </small>
                                     @endif
                                 </div>
                                 <div class="btn-group">
                                     <button type="button" class="btn btn-sm btn-outline-primary" 
-                                            onclick="editCategory({{ $category->id }})">
+                                            onclick="editCategory({{ $parentCategory->id }})">
                                         <i class="bi bi-pencil"></i>
                                     </button>
                                     <button type="button" class="btn btn-sm btn-outline-danger" 
-                                            onclick="deleteCategory({{ $category->id }})">
+                                            onclick="deleteCategory({{ $parentCategory->id }})">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
                             </div>
                         </a>
+                        
+                        @foreach($childCategories->where('category_pk', $parentCategory->id) as $childCategory)
+                            <a href="#" class="list-group-item list-group-item-action category-item" 
+                               data-category-id="{{ $childCategory->id }}"
+                               onclick="loadServices({{ $childCategory->id }})"
+                               style="padding-left: 2.5rem; border-left: 3px solid #0d6efd;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span><i class="bi bi-folder me-2"></i>{{ $childCategory->title }}</span>
+                                        <small class="text-muted d-block">
+                                            <i class="bi bi-arrow-up-right"></i> Parent: {{ $parentCategory->title }}
+                                        </small>
+                                    </div>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                onclick="editCategory({{ $childCategory->id }})">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                onclick="deleteCategory({{ $childCategory->id }})">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </a>
+                        @endforeach
                     @endforeach
+                    
+                    @if($parentCategories->isEmpty())
+                        <div class="list-group-item text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            Aucune catégorie créée
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

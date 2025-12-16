@@ -64,6 +64,9 @@ class TemplateController extends Controller
             'footer_text' => 'nullable|string|max:255',
             'footer_color' => 'nullable|string|max:32',
             'config' => 'nullable|json',
+            'export_columns' => 'nullable|array',
+            'export_columns.*.field' => 'required|string',
+            'export_columns.*.label' => 'required|string|max:255',
             'client_ids' => 'required|array',
             'client_ids.*' => 'exists:clients,id',
         ]);
@@ -99,6 +102,9 @@ class TemplateController extends Controller
                 return redirect()->back()->withErrors(['header_logo' => 'Erreur lors de l\'upload: ' . $e->getMessage()])->withInput();
             }
         }
+
+        // Traiter export_columns depuis le formulaire simplifié
+        $validated['export_columns'] = $this->processExportColumns($request);
 
         $template = Template::create($validated);
 
@@ -165,6 +171,9 @@ class TemplateController extends Controller
             'footer_text' => 'nullable|string|max:255',
             'footer_color' => 'nullable|string|max:32',
             'config' => 'nullable|json',
+            'export_columns' => 'nullable|array',
+            'export_columns.*.field' => 'required|string',
+            'export_columns.*.label' => 'required|string|max:255',
             'client_ids' => 'required|array',
             'client_ids.*' => 'exists:clients,id',
         ]);
@@ -204,6 +213,9 @@ class TemplateController extends Controller
                 return redirect()->back()->withErrors(['header_logo' => 'Erreur lors de l\'upload: ' . $e->getMessage()])->withInput();
             }
         }
+
+        // Traiter export_columns depuis le formulaire simplifié
+        $validated['export_columns'] = $this->processExportColumns($request);
 
         $template->update($validated);
 
@@ -394,5 +406,75 @@ class TemplateController extends Controller
         // Génère un fichier Excel d'exemple avec des données fictives
         // À adapter selon ta logique d'export réelle
         return back()->with('success', "Export d'exemple à implémenter.");
+    }
+
+    /**
+     * Process export columns from simplified form
+     */
+    private function processExportColumns($request)
+    {
+        // Si le formulaire simplifié est utilisé
+        if ($request->has('export_columns_enabled') && is_array($request->export_columns_enabled)) {
+            $enabledColumns = $request->export_columns_enabled;
+            $columnLabels = $request->input('export_columns_labels', []);
+            $columnOrder = $request->input('export_columns_order', []);
+            
+            // Créer le tableau de colonnes dans l'ordre spécifié
+            $exportColumns = [];
+            $processedFields = [];
+            
+            // D'abord, traiter les colonnes dans l'ordre spécifié
+            if (!empty($columnOrder)) {
+                foreach ($columnOrder as $field) {
+                    if (in_array($field, $enabledColumns) && !in_array($field, $processedFields)) {
+                        $exportColumns[] = [
+                            'field' => $field,
+                            'label' => $columnLabels[$field] ?? $this->getDefaultColumnLabel($field)
+                        ];
+                        $processedFields[] = $field;
+                    }
+                }
+            }
+            
+            // Ensuite, ajouter les colonnes cochées qui n'ont pas d'ordre spécifié
+            foreach ($enabledColumns as $field) {
+                if (!in_array($field, $processedFields)) {
+                    $exportColumns[] = [
+                        'field' => $field,
+                        'label' => $columnLabels[$field] ?? $this->getDefaultColumnLabel($field)
+                    ];
+                }
+            }
+            
+            return $exportColumns;
+        }
+        
+        // Fallback : si l'ancien format est utilisé (pour compatibilité)
+        if ($request->has('export_columns') && is_array($request->export_columns)) {
+            return array_values(array_filter($request->export_columns, function($col) {
+                return !empty($col['field']) && !empty($col['label']);
+            }));
+        }
+        
+        return null;
+    }
+
+    /**
+     * Get default label for a column field
+     */
+    private function getDefaultColumnLabel($field)
+    {
+        $labels = [
+            'description' => 'Description',
+            'category_full_path' => 'Catégorie complète',
+            'statut' => 'État',
+            'expiration_date' => 'Date d\'expiration',
+            'notes' => 'Notes',
+            'observations' => 'Observations',
+            'intervenant' => 'Intervenant',
+            'created_at' => 'Date de vérification',
+        ];
+        
+        return $labels[$field] ?? ucfirst(str_replace('_', ' ', $field));
     }
 } 

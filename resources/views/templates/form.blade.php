@@ -253,6 +253,96 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Configuration des colonnes d'export -->
+                        <div class="col-12 mt-4">
+                            <div class="card border">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-table me-2"></i>Colonnes à afficher dans les exports</h6>
+                                    <small class="text-muted">Cochez les colonnes que vous souhaitez voir dans les fichiers Excel, PDF et CSV générés</small>
+                                </div>
+                                <div class="card-body">
+                                    @php
+                                        // Colonnes disponibles avec leurs libellés par défaut
+                                        $availableColumns = [
+                                            'description' => ['label' => 'Description', 'icon' => 'bi-file-text', 'description' => 'Nom du service'],
+                                            'category_full_path' => ['label' => 'Catégorie complète', 'icon' => 'bi-folder', 'description' => 'Chemin complet de la catégorie'],
+                                            'statut' => ['label' => 'État', 'icon' => 'bi-check-circle', 'description' => 'Statut du service (OK/NOK)'],
+                                            'expiration_date' => ['label' => 'Date d\'expiration', 'icon' => 'bi-calendar-x', 'description' => 'Date d\'expiration si applicable'],
+                                            'notes' => ['label' => 'Notes', 'icon' => 'bi-sticky', 'description' => 'Notes générales'],
+                                            'observations' => ['label' => 'Observations', 'icon' => 'bi-eye', 'description' => 'Observations détaillées'],
+                                            'intervenant' => ['label' => 'Intervenant', 'icon' => 'bi-person', 'description' => 'Personne assignée'],
+                                            'created_at' => ['label' => 'Date de vérification', 'icon' => 'bi-clock', 'description' => 'Date et heure de la vérification'],
+                                        ];
+                                        
+                                        // Récupérer la configuration actuelle
+                                        $currentColumns = old('export_columns', isset($template) && $template->export_columns ? $template->export_columns : [
+                                            ['field' => 'description', 'label' => 'Description'],
+                                            ['field' => 'category_full_path', 'label' => 'Catégorie complète'],
+                                            ['field' => 'statut', 'label' => 'Etat'],
+                                            ['field' => 'expiration_date', 'label' => 'Date d\'expiration'],
+                                            ['field' => 'notes', 'label' => 'Notes'],
+                                        ]);
+                                        
+                                        // Créer un tableau associatif pour faciliter la vérification
+                                        $enabledColumns = [];
+                                        $columnLabels = [];
+                                        foreach ($currentColumns as $col) {
+                                            $enabledColumns[$col['field']] = true;
+                                            $columnLabels[$col['field']] = $col['label'];
+                                        }
+                                    @endphp
+                                    
+                                    <div class="row">
+                                        @foreach($availableColumns as $field => $info)
+                                            <div class="col-md-6 mb-3">
+                                                <div class="card h-100 border">
+                                                    <div class="card-body p-3">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input column-checkbox" 
+                                                                   type="checkbox" 
+                                                                   name="export_columns_enabled[]" 
+                                                                   value="{{ $field }}"
+                                                                   id="col_{{ $field }}"
+                                                                   {{ isset($enabledColumns[$field]) ? 'checked' : '' }}
+                                                                   data-field="{{ $field }}">
+                                                            <label class="form-check-label w-100" for="col_{{ $field }}">
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="bi {{ $info['icon'] }} me-2 text-primary"></i>
+                                                                    <strong>{{ $info['label'] }}</strong>
+                                                                </div>
+                                                                <small class="text-muted d-block ms-4">{{ $info['description'] }}</small>
+                                                            </label>
+                                                        </div>
+                                                        
+                                                        <div class="mt-2 column-label-input" 
+                                                             style="display: {{ isset($enabledColumns[$field]) ? 'block' : 'none' }};">
+                                                            <label class="form-label small">Libellé personnalisé (optionnel)</label>
+                                                            <input type="text" 
+                                                                   class="form-control form-control-sm" 
+                                                                   name="export_columns_labels[{{ $field }}]"
+                                                                   value="{{ $columnLabels[$field] ?? $info['label'] }}"
+                                                                   placeholder="{{ $info['label'] }}">
+                                                            <input type="hidden" 
+                                                                   name="export_columns_order[]" 
+                                                                   value="{{ $field }}"
+                                                                   class="column-order-input">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    
+                                    <div class="alert alert-info mt-3 mb-0">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <strong>Astuce :</strong> Les colonnes seront affichées dans l'ordre où vous les cochez. 
+                                        Vous pouvez personnaliser le nom de chaque colonne si vous le souhaitez.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="d-flex justify-content-end mt-4">
                             <a href="{{ route('templates.index') }}" class="btn btn-light me-2">Annuler</a>
                             <button type="button" class="btn btn-outline-info me-2" data-bs-toggle="modal" data-bs-target="#templatePreview">
@@ -291,4 +381,54 @@
 
 @section('scripts')
     <script src="{{ asset('js/templates/simple-config.js') }}"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Afficher/masquer les champs de libellé personnalisé
+        document.querySelectorAll('.column-checkbox').forEach(function(checkbox) {
+            checkbox.addEventListener('change', function() {
+                const labelInput = this.closest('.card-body').querySelector('.column-label-input');
+                const orderInput = this.closest('.card-body').querySelector('.column-order-input');
+                
+                if (this.checked) {
+                    labelInput.style.display = 'block';
+                    if (orderInput) {
+                        orderInput.disabled = false;
+                    }
+                } else {
+                    labelInput.style.display = 'none';
+                    if (orderInput) {
+                        orderInput.disabled = true;
+                    }
+                }
+            });
+            
+            // Déclencher l'événement au chargement pour afficher les champs déjà cochés
+            if (checkbox.checked) {
+                checkbox.dispatchEvent(new Event('change'));
+            }
+        });
+        
+        // Gérer l'ordre des colonnes (drag & drop simple avec réorganisation visuelle)
+        let selectedColumns = [];
+        document.querySelectorAll('.column-checkbox').forEach(function(checkbox) {
+            checkbox.addEventListener('change', function() {
+                updateColumnOrder();
+            });
+        });
+        
+        function updateColumnOrder() {
+            // Mettre à jour l'ordre des colonnes selon l'ordre de sélection
+            const checkedBoxes = Array.from(document.querySelectorAll('.column-checkbox:checked'));
+            checkedBoxes.forEach(function(checkbox, index) {
+                const orderInput = checkbox.closest('.card-body').querySelector('.column-order-input');
+                if (orderInput) {
+                    orderInput.value = index;
+                }
+            });
+        }
+        
+        // Initialiser l'ordre au chargement
+        updateColumnOrder();
+    });
+    </script>
 @endsection 
