@@ -407,6 +407,43 @@ function editCategory(categoryId) {
             // Sélectionner la valeur actuelle
             select.value = data.category_pk || '';
             
+            // Charger la configuration des colonnes d'export
+            if (data.export_columns && Array.isArray(data.export_columns)) {
+                // Décocher toutes les cases
+                document.querySelectorAll('.category-column-checkbox').forEach(cb => {
+                    cb.checked = false;
+                    const labelInput = cb.closest('.card-body').querySelector('.category-column-label-input');
+                    if (labelInput) labelInput.style.display = 'none';
+                });
+                
+                // Cocher et configurer les colonnes configurées
+                data.export_columns.forEach((col, index) => {
+                    const checkbox = document.getElementById(`cat_col_${col.field}`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                        const labelInput = checkbox.closest('.card-body').querySelector('.category-column-label-input');
+                        const labelField = labelInput?.querySelector('input[type="text"]');
+                        if (labelField) {
+                            labelField.value = col.label || '';
+                            labelInput.style.display = 'block';
+                        }
+                    }
+                });
+            } else {
+                // Aucune config, décocher tout
+                document.querySelectorAll('.category-column-checkbox').forEach(cb => {
+                    cb.checked = false;
+                    const labelInput = cb.closest('.card-body').querySelector('.category-column-label-input');
+                    if (labelInput) labelInput.style.display = 'none';
+                });
+            }
+            
+            // Charger l'option show_stats
+            const showStatsCheckbox = document.getElementById('edit_show_stats');
+            if (showStatsCheckbox) {
+                showStatsCheckbox.checked = data.show_stats || false;
+            }
+            
             new bootstrap.Modal(document.getElementById('editCategoryModal')).show();
         });
 }

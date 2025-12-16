@@ -6,7 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class Category extends Model
 {
-    protected $fillable = ['title', 'client_id', 'category_pk', 'status', 'created_by'];
+    protected $fillable = ['title', 'client_id', 'category_pk', 'status', 'created_by', 'export_columns', 'show_stats', 'stats_config'];
+
+    protected $casts = [
+        'export_columns' => 'array',
+        'show_stats' => 'boolean',
+        'stats_config' => 'array',
+    ];
 
     public function client()
     {

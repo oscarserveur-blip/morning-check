@@ -65,6 +65,81 @@
                         </select>
                         <small class="form-text text-muted">Sélectionnez une catégorie principale (sans parent) pour créer une sous-catégorie</small>
                     </div>
+
+                    <hr class="my-4">
+
+                    <!-- Configuration des colonnes d'export pour cette catégorie -->
+                    <div class="mb-3">
+                        <h6 class="mb-3"><i class="bi bi-table me-2"></i>Colonnes à afficher dans les exports</h6>
+                        <p class="text-muted small mb-3">Configurez les colonnes spécifiques à cette catégorie. Si non configuré, la configuration du template sera utilisée.</p>
+                        
+                        @php
+                            $availableColumns = [
+                                'description' => ['label' => 'Description', 'icon' => 'bi-file-text'],
+                                'category_full_path' => ['label' => 'Catégorie complète', 'icon' => 'bi-folder'],
+                                'statut' => ['label' => 'État', 'icon' => 'bi-check-circle'],
+                                'expiration_date' => ['label' => 'Date d\'expiration', 'icon' => 'bi-calendar-x'],
+                                'notes' => ['label' => 'Notes', 'icon' => 'bi-sticky'],
+                                'observations' => ['label' => 'Observations', 'icon' => 'bi-eye'],
+                                'intervenant' => ['label' => 'Intervenant', 'icon' => 'bi-person'],
+                                'created_at' => ['label' => 'Date de vérification', 'icon' => 'bi-clock'],
+                            ];
+                            
+                            $categoryExportColumns = old('export_columns', []);
+                            $enabledColumns = [];
+                            $columnLabels = [];
+                            if (!empty($categoryExportColumns)) {
+                                foreach ($categoryExportColumns as $col) {
+                                    $enabledColumns[$col['field']] = true;
+                                    $columnLabels[$col['field']] = $col['label'];
+                                }
+                            }
+                        @endphp
+                        
+                        <div class="row g-2" id="categoryExportColumnsContainer">
+                            @foreach($availableColumns as $field => $info)
+                                <div class="col-md-6">
+                                    <div class="card border h-100">
+                                        <div class="card-body p-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input category-column-checkbox" 
+                                                       type="checkbox" 
+                                                       name="category_export_columns_enabled[]" 
+                                                       value="{{ $field }}"
+                                                       id="cat_col_{{ $field }}"
+                                                       data-field="{{ $field }}">
+                                                <label class="form-check-label w-100" for="cat_col_{{ $field }}">
+                                                    <i class="bi {{ $info['icon'] }} me-1"></i>
+                                                    <strong>{{ $info['label'] }}</strong>
+                                                </label>
+                                            </div>
+                                            <div class="mt-2 category-column-label-input" style="display: none;">
+                                                <input type="text" 
+                                                       class="form-control form-control-sm" 
+                                                       name="category_export_columns_labels[{{ $field }}]"
+                                                       placeholder="{{ $info['label'] }}">
+                                                <input type="hidden" 
+                                                       name="category_export_columns_order[]" 
+                                                       value="{{ $field }}"
+                                                       class="category-column-order-input">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <!-- Option pour afficher des statistiques -->
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="edit_show_stats" name="show_stats" value="1">
+                            <label class="form-check-label" for="edit_show_stats">
+                                <strong>Afficher des statistiques pour cette catégorie</strong>
+                                <small class="d-block text-muted">Exemple : Consommé, Total, Disponibles (pour les abonnements)</small>
+                            </label>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>

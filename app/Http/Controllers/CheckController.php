@@ -377,9 +377,6 @@ class CheckController extends Controller
         // Section config (ordre, couleurs) - Groupé par catégories parent
         $sections = $template->section_config['sections'] ?? [];
         
-        // Obtenir la configuration des colonnes d'export
-        $exportColumns = $this->getExportColumns($template, $client);
-        
         // Grouper par catégorie parent
         $categories = $serviceChecks->groupBy(function($sc) {
             $category = $sc->service->category ?? null;
@@ -393,18 +390,42 @@ class CheckController extends Controller
         $orderedSections = collect($sections)->sortBy('order')->pluck('name')->toArray();
         $catOrder = array_merge($orderedSections, array_diff($categories->keys()->toArray(), $orderedSections));
         
-        // Calculer le nombre de colonnes nécessaires
-        $columnCount = count($exportColumns);
-        $lastColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($columnCount);
-        
         foreach ($catOrder as $catTitle) {
             if (!$categories->has($catTitle)) continue;
+            
+            // Obtenir la catégorie parent pour cette section
+            $firstServiceCheck = $categories[$catTitle]->first();
+            $parentCategory = $firstServiceCheck->service->category->parent ?? $firstServiceCheck->service->category ?? null;
+            
+            // Obtenir la configuration des colonnes pour cette catégorie spécifique
+            $exportColumns = $this->getExportColumns($template, $client, $parentCategory);
+            
+            // Calculer le nombre de colonnes nécessaires pour cette catégorie
+            $columnCount = count($exportColumns);
+            $lastColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($columnCount);
+            
             $sectionColor = collect($sections)->firstWhere('name', $catTitle)['color'] ?? '444444';
             $sheet->mergeCells("A$row:{$lastColumn}$row");
             $sheet->setCellValue("A$row", $catTitle);
             $sheet->getStyle("A$row")->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
             $sheet->getStyle("A$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB(ltrim($sectionColor, '#'));
             $row++;
+            
+            // Afficher les statistiques si configuré pour cette catégorie
+            if ($parentCategory && $parentCategory->show_stats) {
+                $stats = $this->calculateCategoryStats($categories[$catTitle], $parentCategory);
+                if (!empty($stats)) {
+                    $sheet->mergeCells("A$row:{$lastColumn}$row");
+                    $html = '<table style="width:100%;"><tr>';
+                    foreach ($stats as $stat) {
+                        $html .= "<td><strong>{$stat['label']}:</strong> {$stat['value']}</td>";
+                    }
+                    $html .= '</tr></table>';
+                    $sheet->setCellValue("A$row", $this->formatStatsForExcel($stats));
+                    $sheet->getStyle("A$row")->getFont()->setBold(true);
+                    $row++;
+                }
+            }
             
             // En-têtes de colonnes selon la configuration
             $colIndex = 1;
@@ -495,9 +516,15 @@ class CheckController extends Controller
         // Style global du footer
         $sheet->getStyle("A$footerStartRow:{$lastColumn}$row")->getFont()->setSize(10);
         
-        // Largeur automatique pour toutes les colonnes utilisées
-        $exportColumns = $this->getExportColumns($template, $client);
-        for ($i = 1; $i <= count($exportColumns); $i++) {
+        // Largeur automatique pour toutes les colonnes (on prend le max de toutes les catégories)
+        $maxColumns = 0;
+        foreach ($categories as $catTitle => $serviceChecks) {
+            $firstServiceCheck = $serviceChecks->first();
+            $parentCategory = $firstServiceCheck->service->category->parent ?? $firstServiceCheck->service->category ?? null;
+            $exportColumns = $this->getExportColumns($template, $client, $parentCategory);
+            $maxColumns = max($maxColumns, count($exportColumns));
+        }
+        for ($i = 1; $i <= $maxColumns; $i++) {
             $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i);
             $sheet->getColumnDimension($colLetter)->setAutoSize(true);
         }
@@ -972,11 +999,6 @@ private function generatePngImage($data, $forDownload = false)
         if ($data['serviceChecks']->count() > 0) {
             $csv[] = ['Services vérifiés'];
             
-            // Obtenir la configuration des colonnes
-            $exportColumns = $this->getExportColumns($template, $client);
-            $headers = array_column($exportColumns, 'label');
-            $csv[] = $headers;
-            
             // Grouper par catégorie parent
             $groupedByParent = $data['serviceChecks']->groupBy(function ($serviceCheck) {
                 $category = $serviceCheck->service->category ?? null;
@@ -990,6 +1012,27 @@ private function generatePngImage($data, $forDownload = false)
                 // En-tête de section pour la catégorie parent
                 $csv[] = []; // Ligne vide
                 $csv[] = [$parentTitle]; // Titre de la catégorie parent
+                
+                // Obtenir la catégorie parent pour cette section
+                $firstServiceCheck = $serviceChecks->first();
+                $parentCategory = $firstServiceCheck->service->category->parent ?? $firstServiceCheck->service->category ?? null;
+                
+                // Obtenir la configuration des colonnes pour cette catégorie
+                $exportColumns = $this->getExportColumns($template, $client, $parentCategory);
+                $headers = array_column($exportColumns, 'label');
+                $csv[] = $headers;
+                
+                // Afficher les statistiques si configuré
+                if ($parentCategory && $parentCategory->show_stats) {
+                    $stats = $this->calculateCategoryStats($serviceChecks, $parentCategory);
+                    if (!empty($stats)) {
+                        $statsRow = [];
+                        foreach ($stats as $stat) {
+                            $statsRow[] = "{$stat['label']}: {$stat['value']}";
+                        }
+                        $csv[] = $statsRow;
+                    }
+                }
                 
                 foreach ($serviceChecks as $serviceCheck) {
                     $category = $serviceCheck->service->category ?? null;
@@ -1087,7 +1130,27 @@ private function generatePngImage($data, $forDownload = false)
             });
             
             foreach ($groupedByParent as $parentTitle => $serviceChecks) {
+                // Obtenir la catégorie parent pour cette section
+                $firstServiceCheck = $serviceChecks->first();
+                $parentCategory = $firstServiceCheck->service->category->parent ?? $firstServiceCheck->service->category ?? null;
+                
+                // Obtenir la configuration des colonnes pour cette catégorie
+                $exportColumns = $this->getExportColumns($template, $client, $parentCategory);
+                
                 $html .= '<h4 style="background-color: #f5f5f5; padding: 10px; margin-top: 20px;">' . htmlspecialchars($parentTitle) . '</h4>';
+                
+                // Afficher les statistiques si configuré
+                if ($parentCategory && $parentCategory->show_stats) {
+                    $stats = $this->calculateCategoryStats($serviceChecks, $parentCategory);
+                    if (!empty($stats)) {
+                        $html .= '<div style="background-color: #e3f2fd; padding: 10px; margin-bottom: 10px; border-left: 4px solid #2196F3;">';
+                        foreach ($stats as $stat) {
+                            $html .= '<strong>' . htmlspecialchars($stat['label']) . ':</strong> ' . htmlspecialchars($stat['value']) . ' | ';
+                        }
+                        $html = rtrim($html, ' | ') . '</div>';
+                    }
+                }
+                
                 $html .= '<table class="services-table">
                     <thead>
                         <tr>';
@@ -1194,26 +1257,27 @@ private function generatePngImage($data, $forDownload = false)
     }
 
     /**
-     * Get export columns configuration for a template/client
+     * Get export columns configuration for a template/client/category
      * Returns default columns if not configured
+     * 
+     * @param \App\Models\Template $template
+     * @param \App\Models\Client $client
+     * @param \App\Models\Category|null $category
+     * @return array
      */
-    private function getExportColumns($template, $client)
+    private function getExportColumns($template, $client, $category = null)
     {
-        // Si une configuration existe dans le template, l'utiliser
+        // PRIORITÉ 1 : Si la catégorie a une configuration spécifique, l'utiliser
+        if ($category && $category->export_columns && is_array($category->export_columns) && !empty($category->export_columns)) {
+            return $category->export_columns;
+        }
+
+        // PRIORITÉ 2 : Si une configuration existe dans le template, l'utiliser
         if ($template->export_columns && is_array($template->export_columns) && !empty($template->export_columns)) {
             return $template->export_columns;
         }
 
-        // Configuration par défaut pour tous les clients (nouveau format)
-        $defaultColumns = [
-            ['field' => 'description', 'label' => 'Description'],
-            ['field' => 'category_full_path', 'label' => 'Catégorie complète'],
-            ['field' => 'statut', 'label' => 'Etat'],
-            ['field' => 'expiration_date', 'label' => 'Date d\'expiration'],
-            ['field' => 'notes', 'label' => 'Notes'],
-        ];
-
-        // Configuration spécifique pour Chalons (ancien format simple)
+        // PRIORITÉ 3 : Configuration spécifique pour Chalons (ancien format simple)
         if (stripos($client->label, 'chalons') !== false || stripos($client->label, 'châlons') !== false) {
             return [
                 ['field' => 'description', 'label' => 'Description'],
@@ -1221,7 +1285,14 @@ private function generatePngImage($data, $forDownload = false)
             ];
         }
 
-        return $defaultColumns;
+        // PRIORITÉ 4 : Configuration par défaut pour tous les clients (nouveau format)
+        return [
+            ['field' => 'description', 'label' => 'Description'],
+            ['field' => 'category_full_path', 'label' => 'Catégorie complète'],
+            ['field' => 'statut', 'label' => 'Etat'],
+            ['field' => 'expiration_date', 'label' => 'Date d\'expiration'],
+            ['field' => 'notes', 'label' => 'Notes'],
+        ];
     }
 
     /**
@@ -1262,6 +1333,87 @@ private function generatePngImage($data, $forDownload = false)
             default:
                 return 'N/A';
         }
+    }
+
+    /**
+     * Calculate statistics for a category (e.g., Abonnements)
+     */
+    private function calculateCategoryStats($serviceChecks, $category)
+    {
+        if (!$category->show_stats) {
+            return [];
+        }
+
+        $stats = [];
+        
+        // Exemple pour les abonnements : calculer consommé, total, disponibles
+        // Cette logique peut être personnalisée selon le type de catégorie
+        $statsConfig = $category->stats_config ?? [];
+        
+        // Par défaut, on peut calculer des stats basiques
+        $total = $serviceChecks->count();
+        $ok = $serviceChecks->where('statut', 'success')->count();
+        $nok = $serviceChecks->where('statut', 'error')->count();
+        $warning = $serviceChecks->where('statut', 'warning')->count();
+        
+        // Si la catégorie a une config de stats personnalisée, l'utiliser
+        if (!empty($statsConfig)) {
+            foreach ($statsConfig as $statKey => $statConfig) {
+                $value = $this->calculateStatValue($serviceChecks, $statKey, $statConfig);
+                if ($value !== null) {
+                    $stats[] = [
+                        'label' => $statConfig['label'] ?? ucfirst($statKey),
+                        'value' => $value
+                    ];
+                }
+            }
+        } else {
+            // Stats par défaut
+            $stats[] = ['label' => 'Total', 'value' => $total];
+            $stats[] = ['label' => 'OK', 'value' => $ok];
+            if ($nok > 0) {
+                $stats[] = ['label' => 'NOK', 'value' => $nok];
+            }
+            if ($warning > 0) {
+                $stats[] = ['label' => 'Attention', 'value' => $warning];
+            }
+        }
+        
+        return $stats;
+    }
+
+    /**
+     * Calculate a specific stat value
+     */
+    private function calculateStatValue($serviceChecks, $statKey, $statConfig)
+    {
+        switch ($statKey) {
+            case 'total':
+                return $serviceChecks->count();
+            case 'ok':
+                return $serviceChecks->where('statut', 'success')->count();
+            case 'nok':
+                return $serviceChecks->where('statut', 'error')->count();
+            case 'warning':
+                return $serviceChecks->where('statut', 'warning')->count();
+            case 'consumed':
+                // Pour les abonnements, peut être basé sur les notes ou observations
+                return $serviceChecks->where('statut', 'success')->count();
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Format statistics for Excel display
+     */
+    private function formatStatsForExcel($stats)
+    {
+        $parts = [];
+        foreach ($stats as $stat) {
+            $parts[] = "{$stat['label']}: {$stat['value']}";
+        }
+        return implode(' | ', $parts);
     }
 
     public function autoCheck(\App\Models\Client $client)

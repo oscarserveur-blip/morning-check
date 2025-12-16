@@ -104,15 +104,73 @@ class CategoryController extends Controller
                     }
                 },
             ],
+            'category_export_columns_enabled' => 'nullable|array',
+            'category_export_columns_labels' => 'nullable|array',
+            'show_stats' => 'nullable|boolean',
         ]);
+
+        // Traiter les colonnes d'export
+        $exportColumns = null;
+        if ($request->has('category_export_columns_enabled') && is_array($request->category_export_columns_enabled)) {
+            $enabledColumns = $request->category_export_columns_enabled;
+            $columnLabels = $request->input('category_export_columns_labels', []);
+            $columnOrder = $request->input('category_export_columns_order', []);
+            
+            $exportColumns = [];
+            $processedFields = [];
+            
+            // Traiter dans l'ordre spécifié
+            if (!empty($columnOrder)) {
+                foreach ($columnOrder as $field) {
+                    if (in_array($field, $enabledColumns) && !in_array($field, $processedFields)) {
+                        $exportColumns[] = [
+                            'field' => $field,
+                            'label' => $columnLabels[$field] ?? $this->getDefaultColumnLabel($field)
+                        ];
+                        $processedFields[] = $field;
+                    }
+                }
+            }
+            
+            // Ajouter les autres colonnes cochées
+            foreach ($enabledColumns as $field) {
+                if (!in_array($field, $processedFields)) {
+                    $exportColumns[] = [
+                        'field' => $field,
+                        'label' => $columnLabels[$field] ?? $this->getDefaultColumnLabel($field)
+                    ];
+                }
+            }
+        }
 
         $category->update([
             'title' => $request->title,
             'category_pk' => $request->category_pk,
+            'export_columns' => $exportColumns,
+            'show_stats' => $request->has('show_stats') && $request->show_stats == '1',
         ]);
 
         return redirect()->route('clients.show', ['client' => $category->client_id, 'tab' => 'categories'])
             ->with('success', 'Catégorie mise à jour avec succès.');
+    }
+
+    /**
+     * Get default label for a column field
+     */
+    private function getDefaultColumnLabel($field)
+    {
+        $labels = [
+            'description' => 'Description',
+            'category_full_path' => 'Catégorie complète',
+            'statut' => 'État',
+            'expiration_date' => 'Date d\'expiration',
+            'notes' => 'Notes',
+            'observations' => 'Observations',
+            'intervenant' => 'Intervenant',
+            'created_at' => 'Date de vérification',
+        ];
+        
+        return $labels[$field] ?? ucfirst(str_replace('_', ' ', $field));
     }
 
         /**
