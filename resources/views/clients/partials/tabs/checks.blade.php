@@ -426,11 +426,13 @@ function openCheckModal(checkId) {
                         <table class="table table-sm table-hover">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width: 25%;">Service</th>
-                                    <th style="width: 15%;">Statut</th>
-                                    <th style="width: 25%;">Commentaire</th>
-                                    <th style="width: 20%;">Intervenant</th>
-                                    <th style="width: 15%;">Actions</th>
+                                    <th style="width: 20%;">Service</th>
+                                    <th style="width: 12%;">Statut</th>
+                                    <th style="width: 15%;">Date d'expiration</th>
+                                    <th style="width: 18%;">Commentaire</th>
+                                    <th style="width: 10%;">Notes</th>
+                                    <th style="width: 15%;">Intervenant</th>
+                                    <th style="width: 10%;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -445,6 +447,8 @@ function openCheckModal(checkId) {
                     if (status === 'success') status = 'ok';
                     if (status === 'error') status = 'failed';
                     const comment = serviceCheck.observations || '';
+                    const notes = serviceCheck.notes || '';
+                    const expirationDate = serviceCheck.expiration_date ? new Date(serviceCheck.expiration_date).toISOString().split('T')[0] : '';
                     const intervenant = serviceCheck.intervenant || '';
                     const disabledAttr = isEmailSent ? 'disabled' : '';
                     row.innerHTML = `
@@ -457,10 +461,16 @@ function openCheckModal(checkId) {
                             </select>
                         </td>
                         <td>
+                            <input type="date" class="form-control form-control-sm expiration-date-input" value="${expirationDate}" ${disabledAttr} placeholder="Date d'expiration">
+                        </td>
+                        <td>
                             <textarea class="form-control form-control-sm comment-input" placeholder="Commentaire obligatoire si NOK..." ${isEmailSent || status !== 'failed' ? 'disabled' : ''}>${comment}</textarea>
                             <small class="text-muted comment-help" style="display: none;">
                                 <i class="bi bi-info-circle"></i> Commentaire obligatoire pour le statut NOK
                             </small>
+                        </td>
+                        <td>
+                            <textarea class="form-control form-control-sm notes-input" placeholder="Notes..." ${disabledAttr}>${notes}</textarea>
                         </td>
                         <td>
                             <select class="form-select form-select-sm intervenant-select" ${isEmailSent || status !== 'failed' ? 'disabled' : ''}>
@@ -510,6 +520,18 @@ function handleStatusChange(serviceCheckId, status, selectElement) {
     const intervenantSelect = row.querySelector('.intervenant-select');
     const commentHelp = row.querySelector('.comment-help');
     const intervenantHelp = row.querySelector('.intervenant-help');
+    const expirationDateInput = row.querySelector('.expiration-date-input');
+    const notesInput = row.querySelector('.notes-input');
+    const isEmailSent = row.closest('table').closest('.modal')?.querySelector('.alert-warning') !== null;
+    
+    // Date d'expiration et Notes sont toujours disponibles (sauf si email envoyé)
+    if (expirationDateInput) {
+        expirationDateInput.disabled = isEmailSent;
+    }
+    if (notesInput) {
+        notesInput.disabled = isEmailSent;
+    }
+    
     if (status === 'failed') {
         commentInput.disabled = false;
         intervenantSelect.disabled = false;
@@ -518,12 +540,12 @@ function handleStatusChange(serviceCheckId, status, selectElement) {
         commentHelp.style.display = 'block';
         intervenantHelp.style.display = 'block';
     } else {
-        commentInput.disabled = true;
-        intervenantSelect.disabled = true;
+        // Pour OK et pending, le commentaire et intervenant ne sont pas obligatoires
+        // mais on les laisse disponibles si l'utilisateur veut les remplir
+        commentInput.disabled = false;
+        intervenantSelect.disabled = false;
         commentInput.classList.remove('border-warning');
         intervenantSelect.classList.remove('border-warning');
-        commentInput.value = '';
-        intervenantSelect.value = '';
         commentHelp.style.display = 'none';
         intervenantHelp.style.display = 'none';
     }
@@ -561,12 +583,18 @@ function resetServiceRow(serviceCheckId) {
     const row = document.querySelector(`tr[data-service-check-id="${serviceCheckId}"]`);
     const statusSelect = row.querySelector('.status-select');
     const commentInput = row.querySelector('.comment-input');
+    const notesInput = row.querySelector('.notes-input');
+    const expirationDateInput = row.querySelector('.expiration-date-input');
     const intervenantSelect = row.querySelector('.intervenant-select');
     statusSelect.value = 'pending';
     commentInput.value = '';
+    notesInput.value = '';
+    expirationDateInput.value = '';
     intervenantSelect.value = '';
-    commentInput.disabled = true;
-    intervenantSelect.disabled = true;
+    commentInput.disabled = false;
+    intervenantSelect.disabled = false;
+    notesInput.disabled = false;
+    expirationDateInput.disabled = false;
     row.classList.remove('table-success');
     commentInput.classList.remove('border-warning');
     intervenantSelect.classList.remove('border-warning');
@@ -585,6 +613,8 @@ function saveAllServices(checkId) {
         const serviceCheckId = row.getAttribute('data-service-check-id');
         const status = row.querySelector('.status-select').value;
         const comment = row.querySelector('.comment-input').value;
+        const notes = row.querySelector('.notes-input')?.value || '';
+        const expirationDate = row.querySelector('.expiration-date-input')?.value || '';
         const intervenantId = row.querySelector('.intervenant-select').value;
         const serviceName = row.querySelector('td:first-child strong')?.textContent || 'Service';
 
@@ -620,6 +650,8 @@ function saveAllServices(checkId) {
             id: serviceCheckId,
             status: statutBD,
             observations: statutBD === 'error' ? comment.trim() : (comment.trim() || null),
+            notes: notes.trim() || null,
+            expiration_date: expirationDate || null,
             intervenant_id: statutBD === 'error' ? intervenantId : null
         });
     }

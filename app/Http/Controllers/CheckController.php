@@ -1556,11 +1556,28 @@ private function generatePngImage($data, $forDownload = false)
         $emailHtml = $this->generateEmailHtml($check, $client, $attachment);
         
         try {
-            Mail::send([], [], function ($message) use ($receivers, $senders, $subject, $attachment, $emailHtml) {
+            // Déterminer l'expéditeur : priorité aux senders du client, sinon config globale
+            $fromEmail = !empty($senders) ? $senders[0] : config('mail.from.address');
+            $fromName = config('mail.from.name', 'Check du Matin');
+            
+            // Log pour déboguer
+            \Log::info('Envoi email check', [
+                'client' => $client->label,
+                'from_email' => $fromEmail,
+                'from_name' => $fromName,
+                'senders' => $senders,
+                'receivers' => $receivers,
+            ]);
+            
+            Mail::send([], [], function ($message) use ($receivers, $senders, $subject, $attachment, $emailHtml, $fromEmail, $fromName) {
                 $message->to($receivers);
-                if (!empty($senders)) {
-                    $message->from($senders[0]);
-                }
+                
+                // Définir l'expéditeur avec email et nom (doit être défini AVANT les autres méthodes)
+                $message->from($fromEmail, $fromName);
+                
+                // Forcer l'expéditeur en utilisant aussi sender() pour certains serveurs SMTP
+                $message->sender($fromEmail, $fromName);
+                
                 // Put other senders in CC if present
                 if (count($senders) > 1) {
                     $message->cc(array_slice($senders, 1));

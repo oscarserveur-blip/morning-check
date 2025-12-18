@@ -70,15 +70,26 @@ class ServiceCheckController extends Controller
     {
         $check = \App\Models\Check::findOrFail($checkId);
         
-        $serviceChecks = ServiceCheck::with(['service.category', 'intervenant'])
+        $serviceChecks = ServiceCheck::with(['service.category.parent', 'intervenant'])
             ->where('check_id', $checkId)
             ->get()
             ->map(function($sc) {
                 $arr = $sc->toArray();
                 $arr['intervenant'] = $sc->intervenant ? (string)$sc->intervenant : '';
+                // S'assurer que expiration_date est bien formaté
+                if ($sc->expiration_date) {
+                    $arr['expiration_date'] = $sc->expiration_date->format('Y-m-d');
+                }
                 return $arr;
             })
-            ->groupBy(fn($sc) => $sc['service']['category']['title'] ?? '');
+            ->groupBy(function($sc) {
+                // Grouper par catégorie parent si elle existe, sinon par catégorie
+                $category = $sc['service']['category'] ?? null;
+                if ($category && isset($category['parent']) && $category['parent']) {
+                    return $category['parent']['title'] ?? $category['title'] ?? 'Autres';
+                }
+                return $category['title'] ?? 'Autres';
+            });
 
         \Log::info('getCheckServices - Check ID: ' . $checkId);
         \Log::info('getCheckServices - Données récupérées:', $serviceChecks->toArray());
@@ -227,6 +238,8 @@ class ServiceCheckController extends Controller
             'service_checks.*.id' => 'required|exists:service_checks,id',
             'service_checks.*.status' => 'required|in:pending,in_progress,success,warning,error',
             'service_checks.*.observations' => 'nullable|string|max:1000',
+            'service_checks.*.notes' => 'nullable|string|max:1000',
+            'service_checks.*.expiration_date' => 'nullable|date',
             'service_checks.*.intervenant_id' => 'nullable|exists:users,id'
         ], [
             'service_checks.required' => 'Aucun service check fourni.',
@@ -267,6 +280,8 @@ class ServiceCheckController extends Controller
                     $serviceCheck->update([
                         'statut' => $serviceCheckData['status'],
                         'observations' => $serviceCheckData['observations'] ?? null,
+                        'notes' => $serviceCheckData['notes'] ?? null,
+                        'expiration_date' => !empty($serviceCheckData['expiration_date']) ? $serviceCheckData['expiration_date'] : null,
                         'intervenant' => $newIntervenantId
                     ]);
                     \Log::info('Après mise à jour:', $serviceCheck->fresh()->toArray());

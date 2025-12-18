@@ -31,7 +31,12 @@ class UserPasswordMail extends Mailable
      */
     public function envelope(): Envelope
     {
+        // Utiliser la configuration globale
+        $fromEmail = config('mail.from.address', 'no_reply@bouyguestelecom-solution.fr');
+        $fromName = config('mail.from.name', 'Check du Matin');
+        
         return new Envelope(
+            from: new \Illuminate\Mail\Mailables\Address($fromEmail, $fromName),
             subject: 'Vos identifiants de connexion - Check du Matin',
         );
     }

@@ -31,7 +31,12 @@ class ResetPasswordMail extends Mailable
      */
     public function envelope(): Envelope
     {
+        // Utiliser la configuration globale ou un expéditeur par défaut
+        $fromEmail = config('mail.from.address', 'no_reply@bouyguestelecom-solution.fr');
+        $fromName = config('mail.from.name', 'Check du Matin');
+        
         return new Envelope(
+            from: new \Illuminate\Mail\Mailables\Address($fromEmail, $fromName),
             subject: 'Réinitialisation de votre mot de passe - Check du Matin',
         );
     }

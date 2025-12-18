@@ -39,7 +39,20 @@ class IntervenantAssignedMail extends Mailable
      */
     public function envelope(): Envelope
     {
+        // Utiliser l'expéditeur du client si disponible, sinon config globale
+        $fromEmail = config('mail.from.address', 'no_reply@bouyguestelecom-solution.fr');
+        $fromName = config('mail.from.name', 'Check du Matin');
+        
+        // Si le client a un expéditeur configuré, l'utiliser
+        if ($this->client && $this->client->mailings) {
+            $sender = $this->client->mailings()->where('type', 'sender')->first();
+            if ($sender) {
+                $fromEmail = $sender->email;
+            }
+        }
+        
         return new Envelope(
+            from: new \Illuminate\Mail\Mailables\Address($fromEmail, $fromName),
             subject: 'Tâche assignée - ' . ($this->service->title ?? 'Service') . ' - ' . ($this->client->label ?? 'Client'),
         );
     }
